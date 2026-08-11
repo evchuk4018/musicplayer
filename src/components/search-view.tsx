@@ -1,5 +1,6 @@
 import { ArrowLeft, Clock3, Mic2, Search as SearchIcon, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { Album, Artist, SearchResults, Track } from '@/domain/music';
 import { appPath } from '@/lib/api-path';
 import { Artwork } from './artwork';
@@ -13,13 +14,14 @@ type SearchViewProps = {
   onAdd: (track: Track) => void;
   onSave: (track: Track) => void;
   onRadio: (track: Track, context?: 'track-radio' | 'artist-radio') => void;
+  onClearRecentSearches: () => void;
 };
 
-function ResultGroup({ title, children }: { title: string; children: React.ReactNode }) {
+function ResultGroup({ title, children }: { title: string; children: ReactNode }) {
   return <section className="result-group"><div className="section-heading"><h2>{title}</h2></div>{children}</section>;
 }
 
-export function SearchView({ recentSearches, onPlay, onLike, onAdd, onSave, onRadio }: SearchViewProps) {
+export function SearchView({ recentSearches, onPlay, onLike, onAdd, onSave, onRadio, onClearRecentSearches }: SearchViewProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResults>();
   const [loading, setLoading] = useState(false);
@@ -27,9 +29,7 @@ export function SearchView({ recentSearches, onPlay, onLike, onAdd, onSave, onRa
 
   useEffect(() => {
     const trimmed = query.trim();
-    if (!trimmed) {
-      return;
-    }
+    if (!trimmed) return;
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setLoading(true);
@@ -47,11 +47,12 @@ export function SearchView({ recentSearches, onPlay, onLike, onAdd, onSave, onRa
 
   const submitRecent = (value: string) => setQuery(value);
   if (detail) return <CatalogDetail detail={detail} onBack={() => setDetail(undefined)} onPlay={onPlay} onLike={onLike} onAdd={onAdd} onSave={onSave} onOpenAlbum={(albumId) => setDetail({ kind: 'album', id: albumId })} onArtistRadio={(track) => onRadio(track, 'artist-radio')} />;
+
   return (
     <div className="view search-view">
       <header className="search-header"><button className="icon-button" aria-label="Back"><ArrowLeft size={25} /></button><label className="search-field"><SearchIcon size={20} /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Type to search" aria-label="Search music" />{query && <button className="icon-button" onClick={() => setQuery('')} aria-label="Clear search"><X size={17} /></button>}<button className="voice-button" aria-label="Voice search"><Mic2 size={20} /></button></label></header>
-      {!query && <><section className="recent-search-section"><div className="section-heading"><h2>Recent searches</h2><button className="text-button">Clear</button></div><div className="recent-artwork-row">{recentSearches.slice(0, 4).map((search, index) => <button className="recent-artwork" key={search} onClick={() => submitRecent(search)}><Artwork src={["https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=800&q=85", "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=800&q=85", "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=800&q=85", "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=800&q=85"][index]} alt="" size="lg" /><strong>{search}</strong></button>)}</div>{recentSearches.map((search) => <button className="recent-line" key={search} onClick={() => submitRecent(search)}><Clock3 size={22} /><span>{search}</span><ArrowLeft size={19} className="recent-arrow" /></button>)}</section><div className="search-discovery-grid"><button><span>✦</span>New releases</button><button><span>↗</span>Charts</button><button><span>◌</span>Made for you</button><button><span>⌁</span>Genres & moods</button></div></>}
-      {query && <div className="search-results"><div className="catalog-note">Global catalog · local availability shown on play</div>{loading && <div className="loading-line">Searching the world of music…</div>}{!loading && results && <><ResultGroup title="Songs">{results.tracks.length ? <div className="track-list">{results.tracks.map((track) => <TrackRow key={track.id} track={track} onPlay={onPlay} onLike={onLike} onAdd={onAdd} onSave={onSave} status={track.isLocal ? 'ready' : 'preparing'} />)}</div> : <div className="empty-state">No songs found yet.</div>}</ResultGroup><SearchPeople title="Artists" items={results.artists} onOpen={(artistId) => setDetail({ kind: 'artist', id: artistId })} /><SearchAlbums title="Albums" items={results.albums} onOpen={(albumId) => setDetail({ kind: 'album', id: albumId })} /><SearchPlaylists items={results.playlists} /></>}</div>}
+      {!query && <><section className="recent-search-section"><div className="section-heading"><h2>Recent searches</h2><button className="text-button" onClick={onClearRecentSearches}>Clear</button></div><div className="recent-artwork-row">{recentSearches.slice(0, 4).map((search, index) => <button className="recent-artwork" key={search} onClick={() => submitRecent(search)}><Artwork src={["https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=800&q=85", "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=800&q=85", "https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=800&q=85", "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=800&q=85"][index]} alt="" size="lg" /><strong>{search}</strong></button>)}</div>{recentSearches.map((search) => <button className="recent-line" key={search} onClick={() => submitRecent(search)}><Clock3 size={22} /><span>{search}</span><ArrowLeft size={19} className="recent-arrow" /></button>)}</section><div className="search-discovery-grid"><button><span>*</span>New releases</button><button><span>↗</span>Charts</button><button><span>◌</span>Made for you</button><button><span>~</span>Genres &amp; moods</button></div></>}
+      {query && <div className="search-results"><div className="catalog-note">Global catalog - local availability shown on play</div>{loading && <div className="loading-line">Searching the world of music...</div>}{!loading && results && <><ResultGroup title="Songs">{results.tracks.length ? <div className="track-list">{results.tracks.map((track) => <TrackRow key={track.id} track={track} onPlay={onPlay} onLike={onLike} onAdd={onAdd} onSave={onSave} status={track.isLocal ? 'ready' : 'preparing'} />)}</div> : <div className="empty-state">No songs found yet.</div>}</ResultGroup><SearchPeople title="Artists" items={results.artists} onOpen={(artistId) => setDetail({ kind: 'artist', id: artistId })} /><SearchAlbums title="Albums" items={results.albums} onOpen={(albumId) => setDetail({ kind: 'album', id: albumId })} /><SearchPlaylists items={results.playlists} /></>}</div>}
     </div>
   );
 }
@@ -68,5 +69,5 @@ function SearchAlbums({ title, items, onOpen }: { title: string; items: Album[];
 
 function SearchPlaylists({ items }: { items: SearchResults['playlists'] }) {
   if (!items.length) return null;
-  return <ResultGroup title="Playlists"><div className="artwork-scroll">{items.map((playlist) => <article className="artwork-card" key={playlist.id}><Artwork src={playlist.artworkUrl} alt="" size="md" /><strong>{playlist.name}</strong><span>Global playlist · {playlist.trackCount} tracks</span></article>)}</div></ResultGroup>;
+  return <ResultGroup title="Playlists"><div className="artwork-scroll">{items.map((playlist) => <article className="artwork-card" key={playlist.id}><Artwork src={playlist.artworkUrl} alt="" size="md" /><strong>{playlist.name}</strong><span>Global playlist - {playlist.trackCount} tracks</span></article>)}</div></ResultGroup>;
 }

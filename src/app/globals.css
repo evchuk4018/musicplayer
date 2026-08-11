@@ -180,6 +180,8 @@ strong { font-weight: 700; }
 .action-on-surface { background: var(--surface-strong); }
 .detail-track-wrap { display: flex; align-items: center; gap: 7px; }
 .detail-track-wrap .track-row { flex: 1; min-width: 0; }
+.track-order-actions { display: flex; flex-direction: column; gap: 2px; }
+.track-order-actions .icon-button { width: 26px; height: 25px; }
 .remove-track { padding: 6px 0; color: var(--muted); background: transparent; font-size: 11px; }
 
 .mini-player { position: fixed; z-index: 20; right: 0; bottom: calc(var(--nav-height) + env(safe-area-inset-bottom)); left: 0; display: flex; align-items: center; min-height: var(--mini-height); padding: 8px max(20px, calc((100vw - 760px) / 2 + 20px)); background: rgba(30,31,35,0.98); border-top: 1px solid rgba(255,255,255,0.08); box-shadow: 0 -10px 30px rgba(0,0,0,0.18); }

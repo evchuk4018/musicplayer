@@ -41,6 +41,7 @@ export function MusicApp({ initialState }: MusicAppProps) {
   const [pickerTrack, setPickerTrack] = useState<Track>();
   const [openPlaylist, setOpenPlaylist] = useState<Playlist>();
   const [jobs, setJobs] = useState<AcquisitionJob[]>(initialState.acquisitionJobs);
+  const [playerHydrated, setPlayerHydrated] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const activeJobCount = useMemo(() => jobs.filter((job) => job.status === 'queued' || job.status === 'processing').length, [jobs]);
@@ -48,6 +49,36 @@ export function MusicApp({ initialState }: MusicAppProps) {
   useEffect(() => {
     if ('serviceWorker' in navigator) void navigator.serviceWorker.register(appPath('/sw.js')).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const saved = localStorage.getItem('pulse-player-state');
+        if (saved) {
+          const state = JSON.parse(saved) as { current?: QueueItem; queue?: QueueItem[]; audioUrl?: string; volume?: number; shuffle?: boolean; repeat?: boolean; autoplayEnabled?: boolean };
+          if (state.current?.id) {
+            setCurrent(state.current);
+            setAudioUrl(state.audioUrl ?? state.current.streamUrl ?? state.current.previewUrl);
+          }
+          if (Array.isArray(state.queue)) setQueue(state.queue.filter((item) => item && typeof item.id === 'string'));
+          if (typeof state.volume === 'number') setVolume(Math.min(1, Math.max(0, state.volume)));
+          if (typeof state.shuffle === 'boolean') setShuffle(state.shuffle);
+          if (typeof state.repeat === 'boolean') setRepeat(state.repeat);
+          if (typeof state.autoplayEnabled === 'boolean') setAutoplayEnabled(state.autoplayEnabled);
+        }
+      } catch {
+        localStorage.removeItem('pulse-player-state');
+      } finally {
+        setPlayerHydrated(true);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!playerHydrated) return;
+    localStorage.setItem('pulse-player-state', JSON.stringify({ current, queue, audioUrl, volume, shuffle, repeat, autoplayEnabled }));
+  }, [audioUrl, autoplayEnabled, current, playerHydrated, queue, repeat, shuffle, volume]);
 
   const sendEvent = useCallback((track: Track, eventType: string, extra: Record<string, unknown> = {}) => {
     void fetch(appPath('/api/events'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ trackId: track.id, eventType, ...extra }) }).catch(() => undefined);
@@ -61,6 +92,12 @@ export function MusicApp({ initialState }: MusicAppProps) {
       if (result.job) setJobs((previous) => [...previous.filter((job) => job.trackId !== track.id), result.job!]);
     }).catch(() => undefined);
   }, []);
+
+  const cancelIrrelevantJobs = useCallback((keepTrackIds: string[]) => {
+    const keep = new Set(keepTrackIds);
+    const stale = jobs.filter((job) => (job.status === 'queued' || job.status === 'processing') && !keep.has(job.trackId));
+    void Promise.all(stale.map((job) => fetch(appPath(`/api/acquisition/jobs/${encodeURIComponent(job.id)}`), { method: 'DELETE' }).catch(() => undefined)));
+  }, [jobs]);
 
   const ensureLookahead = useCallback(async (seed: Track, providedQueue: QueueItem[]) => {
     let candidates = providedQueue.filter((item) => item.id !== seed.id);
@@ -82,7 +119,8 @@ export function MusicApp({ initialState }: MusicAppProps) {
   }, [prefetchTrack, recommendations]);
 
   const playTrack = useCallback(async (track: Track, providedQueue?: QueueItem[]) => {
-    const upcoming = providedQueue ?? queue.filter((item) => item.id !== track.id);
+    const upcoming = (providedQueue ?? []).filter((item) => item.id !== track.id);
+    cancelIrrelevantJobs([track.id, ...upcoming.map((item) => item.id)]);
     setCurrent(queueItem(track, track.isLocal ? 'ready' : 'preparing'));
     setProgressSeconds(0);
     setDurationSeconds(track.durationSeconds);
@@ -114,7 +152,7 @@ export function MusicApp({ initialState }: MusicAppProps) {
       setIsPlaying(false);
       setNotice('Couldn’t start this track. Try another song.');
     }
-  }, [ensureLookahead, queue]);
+  }, [cancelIrrelevantJobs, ensureLookahead]);
 
   const playAll = useCallback((tracks: Track[]) => {
     if (!tracks.length) return;
@@ -137,15 +175,24 @@ export function MusicApp({ initialState }: MusicAppProps) {
 
   const advance = useCallback(async () => {
     if (repeat && current) {
+      sendEvent(current, 'replay', { positionSeconds: progressSeconds, completionPercent: durationSeconds ? (progressSeconds / durationSeconds) * 100 : 0 });
       await playTrack(current, queue);
       return;
     }
-    let next: QueueItem | undefined = queue[0];
-    let remaining = queue.slice(1);
-    if (shuffle && queue.length > 1) {
-      const index = Math.floor(Math.random() * queue.length);
-      next = queue[index];
-      remaining = queue.filter((_, itemIndex) => itemIndex !== index);
+    if (current) {
+      const audio = audioRef.current;
+      const positionSeconds = audio?.currentTime ?? progressSeconds;
+      const completionPercent = durationSeconds ? (positionSeconds / durationSeconds) * 100 : 0;
+      sendEvent(current, completionPercent >= 90 ? 'complete' : 'skip', { positionSeconds, completionPercent });
+    }
+    const failedIds = new Set(jobs.filter((job) => job.status === 'failed' || job.status === 'blocked' || job.status === 'cancelled').map((job) => job.trackId));
+    const availableQueue = queue.filter((item) => !failedIds.has(item.id));
+    let next: QueueItem | undefined = availableQueue[0];
+    let remaining = availableQueue.slice(1);
+    if (shuffle && availableQueue.length > 1) {
+      const index = Math.floor(Math.random() * availableQueue.length);
+      next = availableQueue[index];
+      remaining = availableQueue.filter((_, itemIndex) => itemIndex !== index);
     }
     if (!next && autoplayEnabled && current) {
       try {
@@ -160,12 +207,11 @@ export function MusicApp({ initialState }: MusicAppProps) {
       }
     }
     if (next) {
-      if (current) sendEvent(current, 'complete', { completionPercent: 100 });
       await playTrack(next, remaining);
     } else {
       setIsPlaying(false);
     }
-  }, [autoplayEnabled, current, playTrack, queue, repeat, sendEvent, shuffle]);
+  }, [autoplayEnabled, current, durationSeconds, jobs, playTrack, progressSeconds, queue, repeat, sendEvent, shuffle]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -178,6 +224,62 @@ export function MusicApp({ initialState }: MusicAppProps) {
     audio.addEventListener('ended', onEnded);
     return () => { audio.removeEventListener('timeupdate', onTime); audio.removeEventListener('loadedmetadata', onMetadata); audio.removeEventListener('ended', onEnded); };
   }, [advance, current?.durationSeconds]);
+
+  useEffect(() => {
+    const jobByTrack = new Map(jobs.map((job) => [job.trackId, job]));
+    const timer = window.setTimeout(() => {
+      setQueue((previous) => {
+        let changed = false;
+        const next = previous.map((item) => {
+          const job = jobByTrack.get(item.id);
+          if (!job) return item;
+          const queueState = job.status === 'ready' ? 'ready' : job.status === 'failed' || job.status === 'blocked' || job.status === 'cancelled' ? 'failed' : 'preparing';
+          const isLocal = job.status === 'ready' || item.isLocal;
+          if (queueState === item.queueState && isLocal === item.isLocal) return item;
+          changed = true;
+          return queueItem({ ...item, isLocal }, queueState);
+        });
+        return changed ? next : previous;
+      });
+      if (current) {
+        const currentJob = jobByTrack.get(current.id);
+        if (currentJob && (currentJob.status === 'failed' || currentJob.status === 'blocked' || currentJob.status === 'cancelled') && current.queueState !== 'failed') {
+          setCurrent(queueItem(current, 'failed'));
+          setNotice(currentJob.error ?? 'This song could not be prepared.');
+        }
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [current, jobs]);
+
+  useEffect(() => {
+    if (!current || current.isLocal) return;
+    const activeCurrent = current;
+    const job = jobs.find((candidate) => candidate.trackId === activeCurrent.id);
+    if (!job || job.status !== 'ready') return;
+    let active = true;
+    const audio = audioRef.current;
+    const shouldResume = Boolean(audio && !audio.paused);
+    void fetch(appPath('/api/play'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ track: { ...activeCurrent, isLocal: true }, prefetch: true })
+    }).then(async (response) => {
+      if (!active || !response.ok) return;
+      const result = await response.json() as { audioUrl?: string };
+      if (!result.audioUrl) return;
+      const ready = queueItem({ ...activeCurrent, isLocal: true }, 'ready');
+      setCurrent(ready);
+      setQueue((previous) => previous.map((item) => item.id === ready.id ? ready : item));
+      setAudioUrl(result.audioUrl);
+      if (audio) {
+        audio.src = result.audioUrl;
+        audio.load();
+        if (shouldResume) await audio.play().then(() => setIsPlaying(true)).catch(() => undefined);
+      }
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [current, jobs]);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume;
@@ -282,9 +384,30 @@ export function MusicApp({ initialState }: MusicAppProps) {
     void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}/tracks?trackId=${encodeURIComponent(track.id)}`), { method: 'DELETE' }).catch(() => undefined);
   }, []);
 
+  const movePlaylistTrack = useCallback((playlist: Playlist, track: Track, direction: -1 | 1) => {
+    setLibrary((previous) => {
+      const reorder = (item: Playlist) => {
+        if (item.id !== playlist.id) return item;
+        const index = item.tracks.findIndex((candidate) => candidate.id === track.id);
+        const nextIndex = index + direction;
+        if (index < 0 || nextIndex < 0 || nextIndex >= item.tracks.length) return item;
+        const tracks = [...item.tracks];
+        [tracks[index], tracks[nextIndex]] = [tracks[nextIndex], tracks[index]];
+        void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}/tracks`), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ trackIds: tracks.map((candidate) => candidate.id) }) }).catch(() => undefined);
+        return { ...item, tracks };
+      };
+      return playlist.id === previous.likedPlaylist.id ? { ...previous, likedPlaylist: reorder(previous.likedPlaylist) } : { ...previous, playlists: previous.playlists.map(reorder) };
+    });
+  }, []);
+
   const toggleQuickDial = useCallback((playlist: Playlist, enabled: boolean) => {
     setLibrary((previous) => ({ ...previous, quickDial: enabled ? [...previous.quickDial, playlist].slice(0, 6) : previous.quickDial.filter((item) => item.id !== playlist.id) }));
     void fetch(appPath('/api/quick-dial'), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ playlistId: playlist.id, enabled }) }).catch(() => undefined);
+  }, []);
+
+  const clearRecentSearches = useCallback(() => {
+    setLibrary((previous) => ({ ...previous, recentSearches: [] }));
+    void fetch(appPath('/api/search'), { method: 'DELETE' }).catch(() => undefined);
   }, []);
 
   const moveQuickDial = useCallback((playlist: Playlist, direction: -1 | 1) => {
@@ -335,8 +458,8 @@ export function MusicApp({ initialState }: MusicAppProps) {
     <div className="app-shell">
       <main className="app-main" data-active-acquisition-jobs={activeJobCount}>
         {page === 'home' && <HomeView state={{ ...initialState, library }} recommendations={recommendations} onPlay={(track) => void playTrack(track)} onPlayAll={playAll} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onOpenPlaylist={(playlist) => { setOpenPlaylist(playlist); setPage('library'); }} onToggleQuickDial={toggleQuickDial} onMoveQuickDial={moveQuickDial} />}
-        {page === 'search' && <SearchView recentSearches={library.recentSearches} onPlay={(track) => void playTrack(track)} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onRadio={startRadio} />}
-        {page === 'library' && <LibraryView library={library} selectedPlaylist={openPlaylist} onSelectPlaylist={setOpenPlaylist} onClosePlaylist={() => setOpenPlaylist(undefined)} onPlay={(track) => void playTrack(track)} onPlayAll={playAll} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onCreatePlaylist={createPlaylist} onRenamePlaylist={renamePlaylist} onDeletePlaylist={deletePlaylist} onChangeArtwork={changeArtwork} onRemoveTrack={removeTrack} />}
+        {page === 'search' && <SearchView recentSearches={library.recentSearches} onPlay={(track) => void playTrack(track)} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onRadio={startRadio} onClearRecentSearches={clearRecentSearches} />}
+        {page === 'library' && <LibraryView library={library} selectedPlaylist={openPlaylist ? (openPlaylist.id === library.likedPlaylist.id ? library.likedPlaylist : library.playlists.find((playlist) => playlist.id === openPlaylist.id)) : undefined} onSelectPlaylist={setOpenPlaylist} onClosePlaylist={() => setOpenPlaylist(undefined)} onPlay={(track) => void playTrack(track)} onPlayAll={playAll} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onCreatePlaylist={createPlaylist} onRenamePlaylist={renamePlaylist} onDeletePlaylist={deletePlaylist} onChangeArtwork={changeArtwork} onRemoveTrack={removeTrack} onMoveTrack={movePlaylistTrack} />}
       </main>
       {notice && <button className="notice" onClick={() => setNotice(undefined)}>{notice}<span>×</span></button>}
       {visibleTrack && <MiniPlayer track={visibleTrack} isPlaying={isPlaying} progress={progress} onToggle={togglePlayback} onExpand={() => setIsExpanded(true)} />}

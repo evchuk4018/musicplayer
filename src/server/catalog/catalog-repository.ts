@@ -1,6 +1,6 @@
 import type { QueryResultRow } from 'pg';
 import type { Track } from '@/domain/music';
-import { query } from '@/server/db/client';
+import { query, withTransaction } from '@/server/db/client';
 
 type TrackRow = QueryResultRow & {
   id: string;
@@ -110,12 +110,24 @@ export async function upsertCatalogTrack(track: Track) {
 }
 
 export async function setTrackLike(trackId: string, liked: boolean) {
-  const result = await query<TrackRow>(
-    `UPDATE tracks SET is_liked = $2, is_protected = is_protected OR $2, updated_at = now() WHERE id = $1 RETURNING ${trackColumns}`,
-    [trackId, liked]
-  );
-  if (!result.rows[0]) return undefined;
-  return mapTrackRow(result.rows[0]);
+  return withTransaction(async (client) => {
+    const result = await client.query<TrackRow>(
+      `UPDATE tracks SET is_liked = $2, is_protected = is_protected OR $2, updated_at = now() WHERE id = $1 RETURNING ${trackColumns}`,
+      [trackId, liked]
+    );
+    if (!result.rows[0]) return undefined;
+    if (liked) {
+      await client.query(
+        `INSERT INTO playlist_tracks (playlist_id, track_id, position)
+         VALUES ('liked', $1, (SELECT coalesce(max(position), -1) + 1 FROM playlist_tracks WHERE playlist_id = 'liked'))
+         ON CONFLICT (playlist_id, track_id) DO NOTHING`,
+        [trackId]
+      );
+    } else {
+      await client.query(`DELETE FROM playlist_tracks WHERE playlist_id = 'liked' AND track_id = $1`, [trackId]);
+    }
+    return mapTrackRow(result.rows[0]);
+  });
 }
 
 export async function setTrackSaved(trackId: string, saved: boolean) {

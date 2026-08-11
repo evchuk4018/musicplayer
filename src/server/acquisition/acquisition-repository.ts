@@ -21,7 +21,7 @@ export async function getJobForTrack(trackId: string) {
 }
 
 export async function listActiveJobs() {
-  const result = await query<JobRow>(`SELECT id, track_id, status, progress, error, attempts FROM acquisition_jobs WHERE status IN ('queued', 'processing', 'failed', 'blocked') ORDER BY queued_at`, []);
+  const result = await query<JobRow>(`SELECT id, track_id, status, progress, error, attempts FROM acquisition_jobs WHERE status IN ('queued', 'processing', 'ready', 'failed', 'blocked') ORDER BY queued_at DESC LIMIT 100`, []);
   return result.rows.map(mapJob);
 }
 
@@ -36,10 +36,15 @@ export async function ensureAcquisitionJob(track: Track) {
     return mapJob(job);
   }
   const result = await query<JobRow>(
-    `INSERT INTO acquisition_jobs (id, canonical_key, track_id, status, provider) VALUES ($1, $2, $3, 'queued', 'spotdl') RETURNING id, track_id, status, progress, error, attempts`,
+    `INSERT INTO acquisition_jobs (id, canonical_key, track_id, status, provider)
+     VALUES ($1, $2, $3, 'queued', 'spotdl')
+     ON CONFLICT (canonical_key) DO NOTHING
+     RETURNING id, track_id, status, progress, error, attempts`,
     [`job:${crypto.randomUUID()}`, track.canonicalKey, track.id]
   );
-  return mapJob(result.rows[0]);
+  if (result.rows[0]) return mapJob(result.rows[0]);
+  const raced = await query<JobRow>(`SELECT id, track_id, status, progress, error, attempts FROM acquisition_jobs WHERE canonical_key = $1`, [track.canonicalKey]);
+  return mapJob(raced.rows[0]);
 }
 
 export async function claimNextJob() {

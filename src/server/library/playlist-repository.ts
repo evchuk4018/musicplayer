@@ -166,6 +166,10 @@ export async function recordSearch(search: string) {
   await query(`INSERT INTO recent_searches (user_id, query) VALUES ('default', $1) ON CONFLICT (user_id, query) DO UPDATE SET last_used_at = now()`, [search]);
 }
 
+export async function clearRecentSearches() {
+  await query(`DELETE FROM recent_searches WHERE user_id = 'default'`);
+}
+
 export async function recordListeningEvent(input: { id: string; trackId: string; eventType: string; positionSeconds?: number; completionPercent?: number; context?: string; metadata?: Record<string, unknown> }) {
   await query(`INSERT INTO listening_events (id, user_id, track_id, event_type, position_seconds, completion_percent, context, metadata) VALUES ($1, 'default', $2, $3, $4, $5, $6, $7)`, [input.id, input.trackId, input.eventType, input.positionSeconds ?? null, input.completionPercent ?? null, input.context ?? null, JSON.stringify(input.metadata ?? {})]);
 }
