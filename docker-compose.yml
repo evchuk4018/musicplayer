@@ -77,7 +77,7 @@ services:
       - "127.0.0.1:${MUSICPLAYER_WEB_PORT:-3090}:3000"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000${MUSICPLAYER_BASE_PATH:-}/api/health"]
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000${MUSICPLAYER_BASE_PATH:-}/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
       interval: 30s
       timeout: 10s
       retries: 5
