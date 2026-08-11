@@ -1,0 +1,114 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-musicplayer}
+      POSTGRES_USER: ${POSTGRES_USER:-musicplayer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  navidrome:
+    image: deluan/navidrome:latest
+    environment:
+      ND_MUSICFOLDER: /music
+      ND_DATAFOLDER: /data
+      ND_SCANSCHEDULE: 1m
+      ND_LOGLEVEL: info
+      ND_SESSIONTIMEOUT: 24h
+    volumes:
+      - ${MUSIC_ROOT:-./data/music}:/music
+      - navidrome_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:4533/ping >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-musicplayer}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-musicplayer}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["node", "scripts/migrate.mjs"]
+    profiles: ["ops"]
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      DATABASE_URL: postgresql://${POSTGRES_USER:-musicplayer}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-musicplayer}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      MUSIC_CATALOG_PROVIDER: ${MUSIC_CATALOG_PROVIDER:-deezer}
+      NAVIDROME_URL: http://navidrome:4533
+      NAVIDROME_USER: ${NAVIDROME_USER:-}
+      NAVIDROME_PASSWORD: ${NAVIDROME_PASSWORD:-}
+      ACQUISITION_ENABLED: ${ACQUISITION_ENABLED:-false}
+      AUTHORIZED_ACQUISITION: ${AUTHORIZED_ACQUISITION:-false}
+      PREFETCH_SIZE: ${PREFETCH_SIZE:-5}
+      RETENTION_DAYS: ${RETENTION_DAYS:-30}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      navidrome:
+        condition: service_started
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-musicplayer}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-musicplayer}
+      MUSIC_ROOT: /music
+      NAVIDROME_URL: http://navidrome:4533
+      NAVIDROME_USER: ${NAVIDROME_USER:-}
+      NAVIDROME_PASSWORD: ${NAVIDROME_PASSWORD:-}
+      ACQUISITION_ENABLED: ${ACQUISITION_ENABLED:-false}
+      AUTHORIZED_ACQUISITION: ${AUTHORIZED_ACQUISITION:-false}
+      SPOTDL_COMMAND: ${SPOTDL_COMMAND:-spotdl}
+      SPOTDL_OUTPUT: /music
+      SPOTDL_MAX_CONCURRENT: ${SPOTDL_MAX_CONCURRENT:-1}
+      RETENTION_DAYS: ${RETENTION_DAYS:-30}
+    volumes:
+      - ${MUSIC_ROOT:-./data/music}:/music
+    depends_on:
+      postgres:
+        condition: service_healthy
+      navidrome:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"process.exit(0)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+  navidrome_data:
