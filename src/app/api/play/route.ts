@@ -20,7 +20,9 @@ export async function POST(request: Request) {
         recordTrackPlay(parsed.data.id).catch(() => undefined)
       ]);
     }
-    const audioUrl = result.status === 'ready' ? parsed.data.streamUrl ?? parsed.data.previewUrl ?? appPath(`/api/stream/${encodeURIComponent(parsed.data.id)}`) : parsed.data.previewUrl;
+    const audioUrl = result.status === 'ready'
+      ? parsed.data.streamUrl ?? appPath(`/api/stream/${encodeURIComponent(parsed.data.id)}`)
+      : parsed.data.previewUrl;
     return Response.json({ ...result, audioUrl });
   } catch (error) {
     return serverError(error);
