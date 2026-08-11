@@ -462,8 +462,10 @@ export function MusicApp({ initialState }: MusicAppProps) {
         {page === 'library' && <LibraryView library={library} selectedPlaylist={openPlaylist ? (openPlaylist.id === library.likedPlaylist.id ? library.likedPlaylist : library.playlists.find((playlist) => playlist.id === openPlaylist.id)) : undefined} onSelectPlaylist={setOpenPlaylist} onClosePlaylist={() => setOpenPlaylist(undefined)} onPlay={(track) => void playTrack(track)} onPlayAll={playAll} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onCreatePlaylist={createPlaylist} onRenamePlaylist={renamePlaylist} onDeletePlaylist={deletePlaylist} onChangeArtwork={changeArtwork} onRemoveTrack={removeTrack} onMoveTrack={movePlaylistTrack} />}
       </main>
       {notice && <button className="notice" onClick={() => setNotice(undefined)}>{notice}<span>×</span></button>}
-      {visibleTrack && <MiniPlayer track={visibleTrack} isPlaying={isPlaying} progress={progress} onToggle={togglePlayback} onExpand={() => setIsExpanded(true)} />}
-      <BottomNav page={page} onChange={setPage} />
+      <div className="app-dock">
+        {visibleTrack && <MiniPlayer track={visibleTrack} isPlaying={isPlaying} progress={progress} onToggle={togglePlayback} onExpand={() => setIsExpanded(true)} />}
+        <BottomNav page={page} onChange={setPage} />
+      </div>
       <audio ref={audioRef} src={audioUrl} preload="auto" />
       {isExpanded && visibleTrack && <NowPlaying track={visibleTrack} queue={queue} isPlaying={isPlaying} progressSeconds={progressSeconds} durationSeconds={durationSeconds} isLiked={visibleTrack.isLiked} isSaved={visibleTrack.isSaved} shuffle={shuffle} repeat={repeat} volume={volume} autoplayEnabled={autoplayEnabled} onClose={() => setIsExpanded(false)} onToggle={togglePlayback} onPrevious={previousTrack} onNext={() => void advance()} onSeek={seek} onShuffle={() => setShuffle((value) => !value)} onRepeat={() => setRepeat((value) => !value)} onLike={() => toggleLike(visibleTrack)} onSave={() => toggleSave(visibleTrack)} onAdd={() => setPickerTrack(visibleTrack)} onVolume={setVolume} onAutoplay={() => setAutoplayEnabled((value) => !value)} onQueueTrack={queueTrack} onRadio={() => void startRadio(visibleTrack)} />}
       {pickerTrack && <PlaylistPicker track={pickerTrack} playlists={pickerPlaylists} onSelect={addToPlaylist} onCreate={createPlaylist} onClose={() => setPickerTrack(undefined)} />}
