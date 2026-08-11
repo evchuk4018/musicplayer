@@ -41,7 +41,6 @@ export function NowPlaying({ track, queue, isPlaying, progressSeconds, durationS
       <header className="now-playing-header">
         <button className="icon-button" onClick={onClose} aria-label="Close Now Playing"><ChevronDown size={28} /></button>
         <span>NOW PLAYING</span>
-        <button className="icon-button" aria-label="Open queue"><ListMusic size={23} /></button>
       </header>
       <main className="now-playing-content">
         <Artwork src={track.artworkUrl} alt={`${track.title} artwork`} size="hero" priority />

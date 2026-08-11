@@ -1,4 +1,4 @@
-import { Bookmark, Heart, ListPlus, MoreHorizontal, Play } from 'lucide-react';
+import { Bookmark, Heart, ListPlus, Play } from 'lucide-react';
 import type { Track } from '@/domain/music';
 import { Artwork } from './artwork';
 
@@ -33,9 +33,6 @@ export function TrackRow({ track, onPlay, onLike, onAdd, onSave, compact = false
         <ListPlus size={18} />
       </button>
       {onSave && <button className={`icon-button row-action ${track.isSaved ? 'is-saved' : ''}`} onClick={() => onSave(track)} aria-label={track.isSaved ? `Unsave ${track.title}` : `Save ${track.title}`}><Bookmark size={18} fill={track.isSaved ? 'currentColor' : 'none'} /></button>}
-      <button className="icon-button row-action row-more" aria-label={`More options for ${track.title}`}>
-        <MoreHorizontal size={19} />
-      </button>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Cast, ChevronUp, Pause, Play } from 'lucide-react';
+import { ChevronUp, Pause, Play } from 'lucide-react';
 import type { Track } from '@/domain/music';
 import { Artwork } from './artwork';
 
@@ -19,7 +19,6 @@ export function MiniPlayer({ track, isPlaying, progress, onToggle, onExpand }: M
         <span className="mini-copy"><strong>{track.title}</strong><span>{track.artistName}</span></span>
       </button>
       <div className="mini-actions">
-        <button className="icon-button mini-cast" aria-label="Cast playback"><Cast size={21} /></button>
         <button className="mini-play" onClick={onToggle} aria-label={isPlaying ? 'Pause' : 'Play'}>{isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}</button>
         <button className="icon-button" onClick={onExpand} aria-label="Expand player"><ChevronUp size={21} /></button>
       </div>
