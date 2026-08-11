@@ -10,7 +10,6 @@
     "lint": "eslint .",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:check": "tsx scripts/check-migrations.ts",
-    "db:seed": "tsx scripts/seed.ts",
     "worker": "tsx src/worker/index.ts"
   },
   "dependencies": {
