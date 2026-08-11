@@ -40,10 +40,12 @@ export class SpotDlAdapter implements AcquisitionProvider {
       child.on('error', reject);
       child.on('close', (code) => code === 0 ? resolve() : reject(new Error(stderr.trim() || `spotDL exited with ${code}`)));
     });
-    const files = await readdir(root, { recursive: true, withFileTypes: true }).catch(() => []);
+    const files = await readdir(/*turbopackIgnore: true*/ root, { recursive: true, withFileTypes: true }).catch(() => []);
     const titleWords = track.title.toLowerCase().split(/\W+/).filter(Boolean);
     const matches = await Promise.all(files.filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.mp3')).map(async (entry) => {
-      const fullPath = entry.parentPath ? path.join(entry.parentPath, entry.name) : path.join(root, entry.name);
+      const fullPath = entry.parentPath
+        ? path.join(/*turbopackIgnore: true*/ entry.parentPath, entry.name)
+        : path.join(/*turbopackIgnore: true*/ root, entry.name);
       const info = await stat(fullPath).catch(() => undefined);
       if (!info || info.mtimeMs < startedAt - 5000) return undefined;
       const normalized = fullPath.toLowerCase();
