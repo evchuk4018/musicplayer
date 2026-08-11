@@ -37,7 +37,7 @@ export async function searchCatalog(search: string): Promise<SearchResults> {
     }
   }
 
-  let external = { tracks: [] as Track[], artists: [] as Artist[], albums: [] as Album[] };
+  let external = { tracks: [] as Track[], artists: [] as Artist[], albums: [] as Album[], playlists: [] as import('@/domain/music').Playlist[] };
   if (queryText && process.env.MUSIC_CATALOG_PROVIDER !== 'demo') {
     try {
       external = await getCatalogProvider().search(queryText);
@@ -45,7 +45,7 @@ export async function searchCatalog(search: string): Promise<SearchResults> {
         await Promise.all(external.tracks.slice(0, 24).map((track) => upsertCatalogTrack(track).catch(() => undefined)));
       }
     } catch {
-      external = { tracks: [], artists: [], albums: [] };
+      external = { tracks: [], artists: [], albums: [], playlists: [] };
     }
   }
 
@@ -54,7 +54,7 @@ export async function searchCatalog(search: string): Promise<SearchResults> {
     tracks: uniqueTracks([...storedTracks, ...external.tracks, ...demoTracks]).slice(0, 40),
     artists: uniqueArtists([...external.artists, ...demoArtists]).slice(0, 12),
     albums: uniqueAlbums([...external.albums, ...demoAlbums]).slice(0, 12),
-    playlists: []
+    playlists: Array.from(new Map(external.playlists.map((playlist) => [playlist.id, playlist])).values()).slice(0, 8)
   };
 }
 

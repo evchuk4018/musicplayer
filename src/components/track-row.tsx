@@ -1,4 +1,4 @@
-import { Heart, ListPlus, MoreHorizontal, Play } from 'lucide-react';
+import { Bookmark, Heart, ListPlus, MoreHorizontal, Play } from 'lucide-react';
 import type { Track } from '@/domain/music';
 import { Artwork } from './artwork';
 
@@ -7,12 +7,13 @@ type TrackRowProps = {
   onPlay: (track: Track) => void;
   onLike: (track: Track) => void;
   onAdd: (track: Track) => void;
+  onSave?: (track: Track) => void;
   compact?: boolean;
   showPlay?: boolean;
   status?: 'ready' | 'preparing' | 'failed';
 };
 
-export function TrackRow({ track, onPlay, onLike, onAdd, compact = false, showPlay = true, status }: TrackRowProps) {
+export function TrackRow({ track, onPlay, onLike, onAdd, onSave, compact = false, showPlay = true, status }: TrackRowProps) {
   return (
     <div className={`track-row ${compact ? 'track-row-compact' : ''}`}>
       <button className="track-main" onClick={() => onPlay(track)} aria-label={`Play ${track.title} by ${track.artistName}`}>
@@ -31,6 +32,7 @@ export function TrackRow({ track, onPlay, onLike, onAdd, compact = false, showPl
       <button className="icon-button row-action" onClick={() => onAdd(track)} aria-label={`Add ${track.title} to a playlist`}>
         <ListPlus size={18} />
       </button>
+      {onSave && <button className={`icon-button row-action ${track.isSaved ? 'is-saved' : ''}`} onClick={() => onSave(track)} aria-label={track.isSaved ? `Unsave ${track.title}` : `Save ${track.title}`}><Bookmark size={18} fill={track.isSaved ? 'currentColor' : 'none'} /></button>}
       <button className="icon-button row-action row-more" aria-label={`More options for ${track.title}`}>
         <MoreHorizontal size={19} />
       </button>

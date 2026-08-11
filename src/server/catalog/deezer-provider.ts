@@ -12,6 +12,7 @@ type DeezerTrack = {
 };
 
 type DeezerSearchResponse = { data?: DeezerTrack[] };
+type DeezerPlaylist = { id: number; title: string; description?: string; picture_medium?: string; picture_big?: string; nb_tracks?: number };
 
 function imageFor(value?: string) {
   return value ?? 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=800&q=85';
@@ -46,10 +47,10 @@ export class DeezerCatalogProvider implements CatalogProvider {
   readonly name = 'deezer';
 
   async search(query: string): Promise<CatalogSearch> {
-    const response = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=24`, {
-      headers: { accept: 'application/json' },
-      next: { revalidate: 300 }
-    });
+    const [response, playlistResponse] = await Promise.all([
+      fetch(`https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=24`, { headers: { accept: 'application/json' }, next: { revalidate: 300 } }),
+      fetch(`https://api.deezer.com/search/playlist?q=${encodeURIComponent(query)}&limit=8`, { headers: { accept: 'application/json' }, next: { revalidate: 300 } })
+    ]);
 
     if (!response.ok) {
       throw new Error(`Deezer search failed with ${response.status}`);
@@ -75,8 +76,20 @@ export class DeezerCatalogProvider implements CatalogProvider {
       tracks: tracks.filter((candidate) => candidate.albumId === track.albumId),
       source: 'deezer' as const
     }])).values()).slice(0, 8);
+    const playlistPayload = playlistResponse.ok ? await playlistResponse.json() as { data?: DeezerPlaylist[] } : { data: [] };
+    const playlists = (playlistPayload.data ?? []).map((playlist) => ({
+      id: `deezer:playlist:${playlist.id}`,
+      name: playlist.title,
+      description: playlist.description,
+      artworkUrl: imageFor(playlist.picture_big ?? playlist.picture_medium),
+      isSystem: false,
+      isProtected: false,
+      position: 0,
+      trackCount: playlist.nb_tracks ?? 0,
+      tracks: []
+    }));
 
-    return { query, tracks, artists, albums };
+    return { query, tracks, artists, albums, playlists };
   }
 
   async getArtist(artistId: string): Promise<Artist | undefined> {

@@ -49,6 +49,7 @@ strong { font-weight: 700; }
 .icon-button:hover { background: var(--surface-soft); }
 .icon-button:active { transform: scale(0.93); }
 .icon-button.is-liked { color: var(--pink); }
+.icon-button.is-saved { color: var(--accent); }
 .text-button { display: inline-flex; align-items: center; gap: 4px; padding: 3px 0; background: transparent; color: var(--muted-strong); font-size: 13px; font-weight: 700; }
 .eyebrow { display: block; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
 .section-note { color: var(--muted); font-size: 12px; font-weight: 600; }
@@ -206,6 +207,7 @@ strong { font-weight: 700; }
 .now-playing-meta h1 { font-size: clamp(25px, 7vw, 34px); }
 .now-playing-meta p { margin-top: 7px; color: var(--muted-strong); font-size: 15px; }
 .now-like { color: var(--muted-strong); }
+.now-meta-actions { display: flex; align-items: center; gap: 3px; }
 .seek-bar { width: 100%; height: 4px; margin-top: 27px; accent-color: var(--accent); }
 .time-row { display: flex; justify-content: space-between; margin-top: 9px; color: var(--muted); font-size: 11px; }
 .player-controls { display: flex; align-items: center; justify-content: space-between; margin-top: 23px; }

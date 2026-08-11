@@ -121,6 +121,20 @@ export function MusicApp({ initialState }: MusicAppProps) {
     void playTrack(tracks[0], tracks.slice(1).map((track) => queueItem(track, track.isLocal ? 'ready' : 'preparing')));
   }, [playTrack]);
 
+  const startRadio = useCallback(async (seed: Track, context: 'track-radio' | 'artist-radio' = 'track-radio') => {
+    try {
+      const response = await fetch(appPath(`/api/recommendations?context=${context}&seed=${encodeURIComponent(seed.id)}`));
+      const payload = response.ok ? await response.json() as { tracks: Track[] } : { tracks: [] };
+      if (payload.tracks.length) {
+        setRecommendations(payload.tracks);
+        void playTrack(payload.tracks[0], payload.tracks.slice(1, 5).map((track) => queueItem(track, track.isLocal ? 'ready' : 'preparing')));
+        setNotice(`${context === 'artist-radio' ? 'Artist' : 'Track'} radio is ready`);
+      }
+    } catch {
+      setNotice('Radio could not start right now.');
+    }
+  }, [playTrack]);
+
   const advance = useCallback(async () => {
     if (repeat && current) {
       await playTrack(current, queue);
@@ -215,6 +229,13 @@ export function MusicApp({ initialState }: MusicAppProps) {
     void fetch(appPath(`/api/tracks/${encodeURIComponent(track.id)}/like`), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ liked, track: updated }) }).catch(() => undefined);
   }, [sendEvent, updateTrackEverywhere]);
 
+  const toggleSave = useCallback((track: Track) => {
+    const saved = !track.isSaved;
+    const updated = updateTrackEverywhere(track, { isSaved: saved, isProtected: saved || track.isProtected });
+    sendEvent(updated, saved ? 'playlist_add' : 'playlist_remove', { metadata: { destination: 'saved' } });
+    void fetch(appPath(`/api/tracks/${encodeURIComponent(track.id)}/save`), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ saved, track: updated }) }).catch(() => undefined);
+  }, [sendEvent, updateTrackEverywhere]);
+
   const addToPlaylist = useCallback((playlist: Playlist) => {
     if (!pickerTrack) return;
     setLibrary((previous) => {
@@ -247,6 +268,13 @@ export function MusicApp({ initialState }: MusicAppProps) {
     if (!window.confirm(`Delete ${playlist.name}?`)) return;
     setLibrary((previous) => ({ ...previous, playlists: previous.playlists.filter((item) => item.id !== playlist.id), quickDial: previous.quickDial.filter((item) => item.id !== playlist.id) }));
     void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}`), { method: 'DELETE' }).catch(() => undefined);
+  }, []);
+
+  const changeArtwork = useCallback((playlist: Playlist) => {
+    const artworkUrl = window.prompt('Paste an artwork URL', playlist.artworkUrl);
+    if (!artworkUrl?.trim()) return;
+    setLibrary((previous) => ({ ...previous, playlists: previous.playlists.map((item) => item.id === playlist.id ? { ...item, artworkUrl: artworkUrl.trim() } : item), quickDial: previous.quickDial.map((item) => item.id === playlist.id ? { ...item, artworkUrl: artworkUrl.trim() } : item) }));
+    void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}`), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ artworkUrl: artworkUrl.trim() }) }).catch(() => undefined);
   }, []);
 
   const removeTrack = useCallback((playlist: Playlist, track: Track) => {
@@ -306,15 +334,15 @@ export function MusicApp({ initialState }: MusicAppProps) {
   return (
     <div className="app-shell">
       <main className="app-main" data-active-acquisition-jobs={activeJobCount}>
-        {page === 'home' && <HomeView state={{ ...initialState, library }} recommendations={recommendations} onPlay={(track) => void playTrack(track)} onPlayAll={playAll} onLike={toggleLike} onAdd={setPickerTrack} onOpenPlaylist={(playlist) => { setOpenPlaylist(playlist); setPage('library'); }} onToggleQuickDial={toggleQuickDial} onMoveQuickDial={moveQuickDial} />}
-        {page === 'search' && <SearchView recentSearches={library.recentSearches} onPlay={(track) => void playTrack(track)} onLike={toggleLike} onAdd={setPickerTrack} />}
-        {page === 'library' && <LibraryView library={library} selectedPlaylist={openPlaylist} onSelectPlaylist={setOpenPlaylist} onClosePlaylist={() => setOpenPlaylist(undefined)} onPlay={(track) => void playTrack(track)} onPlayAll={playAll} onLike={toggleLike} onAdd={setPickerTrack} onCreatePlaylist={createPlaylist} onRenamePlaylist={renamePlaylist} onDeletePlaylist={deletePlaylist} onRemoveTrack={removeTrack} />}
+        {page === 'home' && <HomeView state={{ ...initialState, library }} recommendations={recommendations} onPlay={(track) => void playTrack(track)} onPlayAll={playAll} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onOpenPlaylist={(playlist) => { setOpenPlaylist(playlist); setPage('library'); }} onToggleQuickDial={toggleQuickDial} onMoveQuickDial={moveQuickDial} />}
+        {page === 'search' && <SearchView recentSearches={library.recentSearches} onPlay={(track) => void playTrack(track)} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onRadio={startRadio} />}
+        {page === 'library' && <LibraryView library={library} selectedPlaylist={openPlaylist} onSelectPlaylist={setOpenPlaylist} onClosePlaylist={() => setOpenPlaylist(undefined)} onPlay={(track) => void playTrack(track)} onPlayAll={playAll} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onCreatePlaylist={createPlaylist} onRenamePlaylist={renamePlaylist} onDeletePlaylist={deletePlaylist} onChangeArtwork={changeArtwork} onRemoveTrack={removeTrack} />}
       </main>
       {notice && <button className="notice" onClick={() => setNotice(undefined)}>{notice}<span>×</span></button>}
       {visibleTrack && <MiniPlayer track={visibleTrack} isPlaying={isPlaying} progress={progress} onToggle={togglePlayback} onExpand={() => setIsExpanded(true)} />}
       <BottomNav page={page} onChange={setPage} />
       <audio ref={audioRef} src={audioUrl} preload="auto" />
-      {isExpanded && visibleTrack && <NowPlaying track={visibleTrack} queue={queue} isPlaying={isPlaying} progressSeconds={progressSeconds} durationSeconds={durationSeconds} isLiked={visibleTrack.isLiked} shuffle={shuffle} repeat={repeat} volume={volume} autoplayEnabled={autoplayEnabled} onClose={() => setIsExpanded(false)} onToggle={togglePlayback} onPrevious={previousTrack} onNext={() => void advance()} onSeek={seek} onShuffle={() => setShuffle((value) => !value)} onRepeat={() => setRepeat((value) => !value)} onLike={() => toggleLike(visibleTrack)} onAdd={() => setPickerTrack(visibleTrack)} onVolume={setVolume} onAutoplay={() => setAutoplayEnabled((value) => !value)} onQueueTrack={queueTrack} />}
+      {isExpanded && visibleTrack && <NowPlaying track={visibleTrack} queue={queue} isPlaying={isPlaying} progressSeconds={progressSeconds} durationSeconds={durationSeconds} isLiked={visibleTrack.isLiked} isSaved={visibleTrack.isSaved} shuffle={shuffle} repeat={repeat} volume={volume} autoplayEnabled={autoplayEnabled} onClose={() => setIsExpanded(false)} onToggle={togglePlayback} onPrevious={previousTrack} onNext={() => void advance()} onSeek={seek} onShuffle={() => setShuffle((value) => !value)} onRepeat={() => setRepeat((value) => !value)} onLike={() => toggleLike(visibleTrack)} onSave={() => toggleSave(visibleTrack)} onAdd={() => setPickerTrack(visibleTrack)} onVolume={setVolume} onAutoplay={() => setAutoplayEnabled((value) => !value)} onQueueTrack={queueTrack} onRadio={() => void startRadio(visibleTrack)} />}
       {pickerTrack && <PlaylistPicker track={pickerTrack} playlists={pickerPlaylists} onSelect={addToPlaylist} onCreate={createPlaylist} onClose={() => setPickerTrack(undefined)} />}
     </div>
   );
