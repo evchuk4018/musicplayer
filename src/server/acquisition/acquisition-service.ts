@@ -1,7 +1,7 @@
 import type { Track } from '@/domain/music';
 import { databaseConfigured } from '@/server/db/client';
-import { persistTrackIfConfigured } from '@/server/catalog/catalog-service';
-import { ensureAcquisitionJob, getJobForTrack } from './acquisition-repository';
+import { getJobForTrack } from './acquisition-repository';
+import { queueTrackForAcquisition } from './liked-playlist-acquisition-service';
 import { SpotDlAdapter } from './spotdl-adapter';
 
 const provider = new SpotDlAdapter();
@@ -12,8 +12,8 @@ export async function ensureTrackReady(track: Track) {
     return { status: 'preparing' as const, track, job: { id: `demo-job:${track.id}`, trackId: track.id, status: 'queued' as const, progress: 12, attempts: 0 } };
   }
 
-  await persistTrackIfConfigured(track);
-  const job = await ensureAcquisitionJob(track);
+  const job = await queueTrackForAcquisition(track);
+  if (!job) throw new Error('Unable to queue acquisition for this track');
   if (process.env.ACQUISITION_ENABLED !== 'true' || process.env.AUTHORIZED_ACQUISITION !== 'true') {
     return { status: 'preview' as const, track, job: { ...job, status: 'blocked' as const }, detail: 'A preview is available. Enable authorized acquisition on homelab for full playback.' };
   }

@@ -2,7 +2,8 @@ import { addTrackToPlaylist, removeTrackFromPlaylist, reorderPlaylistTracks } fr
 import { databaseConfigured } from '@/server/db/client';
 import { readJson, badRequest, serverError } from '@/server/protocol/http';
 import { trackSchema } from '@/server/protocol/schemas';
-import { upsertCatalogTrack } from '@/server/catalog/catalog-repository';
+import { setTrackLike, upsertCatalogTrack } from '@/server/catalog/catalog-repository';
+import { queueTrackForAcquisition } from '@/server/acquisition/liked-playlist-acquisition-service';
 
 export async function POST(request: Request, { params }: { params: Promise<{ playlistId: string }> }) {
   const { playlistId } = await params;
@@ -10,11 +11,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
   const parsed = trackSchema.safeParse(body?.track);
   if (!parsed.success) return badRequest('A complete track is required');
   try {
+    const resolvedPlaylistId = decodeURIComponent(playlistId);
+    let job;
     if (databaseConfigured()) {
       await upsertCatalogTrack(parsed.data);
-      await addTrackToPlaylist(decodeURIComponent(playlistId), parsed.data.id);
+      if (resolvedPlaylistId === 'liked') {
+        const likedTrack = await setTrackLike(parsed.data.id, true);
+        if (likedTrack) job = await queueTrackForAcquisition(likedTrack);
+      } else {
+        await addTrackToPlaylist(resolvedPlaylistId, parsed.data.id);
+      }
     }
-    return Response.json({ playlistId: decodeURIComponent(playlistId), track: parsed.data }, { status: 201 });
+    return Response.json({ playlistId: resolvedPlaylistId, track: parsed.data, job }, { status: 201 });
   } catch (error) {
     return serverError(error);
   }
@@ -26,8 +34,12 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ p
   const trackId = searchParams.get('trackId');
   if (!trackId) return badRequest('trackId is required');
   try {
-    if (databaseConfigured()) await removeTrackFromPlaylist(decodeURIComponent(playlistId), trackId);
-    return Response.json({ playlistId: decodeURIComponent(playlistId), trackId });
+    const resolvedPlaylistId = decodeURIComponent(playlistId);
+    if (databaseConfigured()) {
+      if (resolvedPlaylistId === 'liked') await setTrackLike(trackId, false);
+      else await removeTrackFromPlaylist(resolvedPlaylistId, trackId);
+    }
+    return Response.json({ playlistId: resolvedPlaylistId, trackId });
   } catch (error) {
     return serverError(error);
   }

@@ -1,4 +1,5 @@
 import { setTrackLike, upsertCatalogTrack } from '@/server/catalog/catalog-repository';
+import { queueTrackForAcquisition } from '@/server/acquisition/liked-playlist-acquisition-service';
 import { databaseConfigured } from '@/server/db/client';
 import { readJson, badRequest, serverError } from '@/server/protocol/http';
 import { trackMutationSchema, trackSchema } from '@/server/protocol/schemas';
@@ -11,8 +12,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ tra
   const track = trackSchema.safeParse(body.track);
   try {
     if (databaseConfigured() && track.success) await upsertCatalogTrack(track.data);
-    if (databaseConfigured()) await setTrackLike(mutation.data.trackId, body.liked);
-    return Response.json({ trackId: mutation.data.trackId, liked: body.liked });
+    let job;
+    if (databaseConfigured()) {
+      const persistedTrack = await setTrackLike(mutation.data.trackId, body.liked);
+      if (body.liked && persistedTrack) job = await queueTrackForAcquisition(persistedTrack);
+    }
+    return Response.json({ trackId: mutation.data.trackId, liked: body.liked, job });
   } catch (error) {
     return serverError(error);
   }

@@ -356,7 +356,10 @@ export function MusicApp({ initialState }: MusicAppProps) {
     const liked = !track.isLiked;
     const updated = updateTrackEverywhere(track, { isLiked: liked, isProtected: liked || track.isProtected });
     sendEvent(updated, liked ? 'like' : 'unlike');
-    void fetch(appPath(`/api/tracks/${encodeURIComponent(track.id)}/like`), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ liked, track: updated }) }).catch(() => undefined);
+    void fetch(appPath(`/api/tracks/${encodeURIComponent(track.id)}/like`), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ liked, track: updated }) }).then(async (response) => {
+      const payload = await response.json().catch(() => undefined) as { job?: AcquisitionJob } | undefined;
+      if (response.ok && payload?.job) setJobs((previous) => [...previous.filter((job) => job.trackId !== payload.job!.trackId), payload.job!]);
+    }).catch(() => undefined);
   }, [sendEvent, updateTrackEverywhere]);
 
   const toggleSave = useCallback((track: Track) => {
@@ -380,7 +383,10 @@ export function MusicApp({ initialState }: MusicAppProps) {
       return { ...previous, playlists, speedDial: nextPlaylist ? updateSpeedDialPlaylist(previous.speedDial, playlist.id, () => nextPlaylist) : previous.speedDial };
     });
     sendEvent(pickerTrack, 'playlist_add', { metadata: { playlistId: playlist.id } });
-    void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}/tracks`), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ track: pickerTrack }) }).catch(() => undefined);
+    void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}/tracks`), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ track: pickerTrack }) }).then(async (response) => {
+      const payload = await response.json().catch(() => undefined) as { job?: AcquisitionJob } | undefined;
+      if (response.ok && payload?.job) setJobs((previous) => [...previous.filter((job) => job.trackId !== payload.job!.trackId), payload.job!]);
+    }).catch(() => undefined);
     setPickerTrack(undefined);
   }, [pickerTrack, sendEvent]);
 

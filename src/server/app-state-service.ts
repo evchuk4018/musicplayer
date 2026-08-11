@@ -3,11 +3,13 @@ import type { AppState } from '@/domain/music';
 import { databaseConfigured } from '@/server/db/client';
 import { getLibrarySnapshot } from '@/server/library/playlist-repository';
 import { listActiveJobs } from '@/server/acquisition/acquisition-repository';
+import { queueLikedPlaylistTracks } from '@/server/acquisition/liked-playlist-acquisition-service';
 import { getHomeRecommendations } from '@/server/recommendation/recommendation-service';
 
 export async function getInitialAppState(): Promise<AppState> {
   if (!databaseConfigured()) return DEMO_APP_STATE;
   try {
+    await queueLikedPlaylistTracks().catch(() => undefined);
     const [library, homeRecommendations, acquisitionJobs] = await Promise.all([
       getLibrarySnapshot(),
       getHomeRecommendations(),
