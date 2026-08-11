@@ -24,7 +24,7 @@ if [ ! -f .env ]; then
     printf 'SPOTDL_COMMAND=spotdl\nSPOTDL_MAX_CONCURRENT=1\nRETENTION_DAYS=30\nPREFETCH_SIZE=5\n'
   } > .env
 fi
-docker compose --project-name musicplayer --env-file .env build
+docker compose --project-name musicplayer --profile ops --env-file .env build
 docker compose --project-name musicplayer --env-file .env up -d postgres navidrome
 docker compose --project-name musicplayer --env-file .env run --rm migrate
 docker compose --project-name musicplayer --env-file .env run --rm migrate node scripts/seed.mjs
