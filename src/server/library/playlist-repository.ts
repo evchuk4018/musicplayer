@@ -74,16 +74,19 @@ export async function listPlaylists(includeSystem = true) {
 }
 
 export async function getLibrarySnapshot(): Promise<LibrarySnapshot> {
-  const [allPlaylists, recentResult, savedResult, quickDialResult, searchesResult] = await Promise.all([
+  const [allPlaylists, recentResult, savedResult, likedResult, quickDialResult, searchesResult] = await Promise.all([
     listPlaylists(true),
     query<PlaylistTrackRow>(`SELECT t.id, t.canonical_key, t.title, t.artist_id, t.artist_name, t.album_id, t.album_name, t.artwork_url, t.preview_url, t.source_url, t.duration_seconds, t.genre, t.year, t.tempo, t.mood, t.energy, t.is_local, t.local_path, t.is_liked, t.is_saved, t.is_protected, t.acquired_at, t.last_played_at, t.play_count FROM tracks t WHERE t.last_played_at IS NOT NULL ORDER BY t.last_played_at DESC LIMIT 12`),
     query<PlaylistTrackRow>(`SELECT t.id, t.canonical_key, t.title, t.artist_id, t.artist_name, t.album_id, t.album_name, t.artwork_url, t.preview_url, t.source_url, t.duration_seconds, t.genre, t.year, t.tempo, t.mood, t.energy, t.is_local, t.local_path, t.is_liked, t.is_saved, t.is_protected, t.acquired_at, t.last_played_at, t.play_count FROM tracks t WHERE t.is_saved = true ORDER BY t.last_played_at DESC NULLS LAST, t.title LIMIT 40`),
+    query<PlaylistTrackRow>(`SELECT t.id, t.canonical_key, t.title, t.artist_id, t.artist_name, t.album_id, t.album_name, t.artwork_url, t.preview_url, t.source_url, t.duration_seconds, t.genre, t.year, t.tempo, t.mood, t.energy, t.is_local, t.local_path, t.is_liked, t.is_saved, t.is_protected, t.acquired_at, t.last_played_at, t.play_count FROM tracks t WHERE t.is_liked = true ORDER BY t.last_played_at DESC NULLS LAST, t.title LIMIT 200`),
     query<PlaylistRow>(`SELECT p.${playlistColumns.replaceAll(', ', ', p.')} FROM quick_dial_items q JOIN playlists p ON p.id = q.playlist_id WHERE q.user_id = 'default' ORDER BY q.position`),
     query<QueryResultRow & { query: string }>(`SELECT query FROM recent_searches WHERE user_id = 'default' ORDER BY last_used_at DESC LIMIT 8`)
   ]);
-  const likedPlaylist = allPlaylists.find((playlist) => playlist.id === 'liked') ?? {
+  const likedPlaylistBase = allPlaylists.find((playlist) => playlist.id === 'liked') ?? {
     id: 'liked', name: 'Liked Music', description: 'Your one-tap favorites', artworkUrl: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=800&q=85', isSystem: true, isProtected: true, position: 0, trackCount: 0, tracks: []
   };
+  const likedTracks = likedResult.rows.map(mapTrackRow);
+  const likedPlaylist = { ...likedPlaylistBase, tracks: likedTracks, trackCount: likedTracks.length };
   return {
     playlists: allPlaylists.filter((playlist) => playlist.id !== 'liked'),
     likedPlaylist,

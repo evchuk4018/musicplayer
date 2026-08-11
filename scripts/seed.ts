@@ -8,6 +8,7 @@ async function main() {
     await query(`INSERT INTO playlists (id, user_id, name, description, artwork_url, is_system, is_protected, position) VALUES ($1, 'default', $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, artwork_url = EXCLUDED.artwork_url, position = EXCLUDED.position`, [playlist.id, playlist.name, playlist.description ?? null, playlist.artworkUrl, playlist.isSystem, playlist.isProtected, playlist.position]);
     for (const [position, track] of playlist.tracks.entries()) {
       await query(`INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES ($1, $2, $3) ON CONFLICT (playlist_id, track_id) DO UPDATE SET position = EXCLUDED.position`, [playlist.id, track.id, position]);
+      await query(`UPDATE tracks SET is_protected = true WHERE id = $1`, [track.id]);
     }
   }
   for (const [position, playlist] of DEMO_APP_QUICK_DIAL.entries()) {
