@@ -10,6 +10,7 @@ import type {
     SeerrSearchResult,
     SeerrUser
 } from './types';
+import { normalizeJellyfinUserId } from './user-id';
 
 export class SeerrConfigurationError extends Error {
     constructor() {
@@ -98,7 +99,10 @@ const toRequestMediaType = (request: SeerrRequest): SeerrMediaType | undefined =
 export class SeerrAdapter {
     private async findUser(jellyfinUserId: string): Promise<SeerrUser | undefined> {
         const response = await requestJson<{ results?: SeerrUser[] }>('/user?take=1000&skip=0');
-        return response.results?.find(user => user.jellyfinUserId === jellyfinUserId);
+        const normalizedJellyfinUserId = normalizeJellyfinUserId(jellyfinUserId);
+        return response.results?.find(user => (
+            normalizeJellyfinUserId(user.jellyfinUserId) === normalizedJellyfinUserId
+        ));
     }
 
     async resolveUser(jellyfinUserId: string): Promise<number> {
