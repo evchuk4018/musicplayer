@@ -12,7 +12,7 @@ async function main() {
     }
   }
   for (const [position, playlist] of DEMO_APP_QUICK_DIAL.entries()) {
-    await query(`INSERT INTO quick_dial_items (user_id, playlist_id, position) VALUES ('default', $1, $2) ON CONFLICT (user_id, playlist_id) DO UPDATE SET position = EXCLUDED.position`, [playlist.id, position]);
+    await query(`INSERT INTO speed_dial_items (user_id, item_key, item_type, playlist_id, position) VALUES ('default', $1, 'playlist', $2, $3) ON CONFLICT (user_id, item_key) DO UPDATE SET position = EXCLUDED.position, updated_at = now()`, [`playlist:${playlist.id}`, playlist.id, position]);
   }
   console.log(`Seeded ${DEMO_TRACKS.length} tracks and ${DEMO_PLAYLISTS.length} playlists`);
 }

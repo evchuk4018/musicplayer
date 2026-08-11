@@ -1,4 +1,4 @@
-import type { AppState, Artist, Album, Playlist, Track } from '@/domain/music';
+import type { AppState, Artist, Album, Playlist, SpeedDialItem, Track } from '@/domain/music';
 
 const audio = 'https://storage.googleapis.com/coverr-main/mp3/Mt_Baker.mp3';
 
@@ -86,6 +86,21 @@ export const DEMO_PLAYLISTS: Playlist[] = [
   playlist({ id: 'playlist:weekend', name: 'Weekend Energy', description: 'Start somewhere warm', artworkUrl: art.pink, isSystem: false, isProtected: false, position: 3, tracks: DEMO_TRACKS.filter((candidate) => ['demo:track:somewhere-warm', 'demo:track:velvet-rope', 'demo:track:all-night', 'demo:track:open-window'].includes(candidate.id)) })
 ];
 
+const pinnedSpeedDialPlaylist = (playlist: Playlist, position: number): SpeedDialItem => ({ kind: 'playlist', id: playlist.id, playlist, isPinned: true, source: 'pinned', position });
+const frequentSpeedDialTrack = (track: Track, position: number): SpeedDialItem => ({ kind: 'track', id: track.id, track, isPinned: false, source: 'frequent', position });
+const frequentSpeedDialPlaylist = (playlist: Playlist, position: number): SpeedDialItem => ({ kind: 'playlist', id: playlist.id, playlist, isPinned: false, source: 'frequent', position });
+
+const DEMO_SPEED_DIAL: SpeedDialItem[] = [
+  pinnedSpeedDialPlaylist(DEMO_PLAYLISTS[1], 0),
+  pinnedSpeedDialPlaylist(DEMO_PLAYLISTS[2], 1),
+  pinnedSpeedDialPlaylist(DEMO_PLAYLISTS[3], 2),
+  frequentSpeedDialTrack(DEMO_TRACKS[4], 0),
+  frequentSpeedDialTrack(DEMO_TRACKS[1], 1),
+  frequentSpeedDialTrack(DEMO_TRACKS[6], 2),
+  frequentSpeedDialTrack(DEMO_TRACKS[3], 3),
+  frequentSpeedDialPlaylist(DEMO_PLAYLISTS[0], 4)
+];
+
 export const DEMO_ARTISTS = artists;
 export const DEMO_ALBUMS = albums;
 
@@ -97,7 +112,7 @@ export const DEMO_APP_STATE: AppState = {
     recentlyPlayed: [DEMO_TRACKS[1], DEMO_TRACKS[4], DEMO_TRACKS[6], DEMO_TRACKS[2]],
     savedTracks: DEMO_TRACKS.filter((item) => item.isSaved),
     recentSearches: ['dirty diana', 'lemonade', 'legendary lovers', 'yesterday is gone'],
-    quickDial: [DEMO_PLAYLISTS[1], DEMO_PLAYLISTS[2], DEMO_PLAYLISTS[3]]
+    speedDial: DEMO_SPEED_DIAL
   },
   homeRecommendations: [DEMO_TRACKS[4], DEMO_TRACKS[6], DEMO_TRACKS[2], DEMO_TRACKS[10], DEMO_TRACKS[8], DEMO_TRACKS[13]],
   acquisitionJobs: []

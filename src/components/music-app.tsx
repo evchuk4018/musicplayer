@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AppState, AcquisitionJob, LibrarySnapshot, Playlist, QueueItem, Track } from '@/domain/music';
+import type { AppState, AcquisitionJob, LibrarySnapshot, Playlist, QueueItem, SpeedDialItem, SpeedDialTarget, Track } from '@/domain/music';
 import { appPath } from '@/lib/api-path';
 import { BottomNav, type PageName } from './bottom-nav';
 import { Artwork } from './artwork';
@@ -19,6 +19,22 @@ function queueItem(track: Track, queueState: QueueItem['queueState'] = 'ready'):
 
 function uniqueTracks(tracks: Track[]) {
   return Array.from(new Map(tracks.map((track) => [track.id, track])).values());
+}
+
+const MAX_SPEED_DIAL_ITEMS = 9;
+
+function sameSpeedDialTarget(item: SpeedDialItem, target: SpeedDialTarget) {
+  return item.kind === target.kind && item.id === target.id;
+}
+
+function speedDialItemFromTarget(target: SpeedDialTarget, position: number): SpeedDialItem {
+  return target.kind === 'track'
+    ? { kind: 'track', id: target.id, track: target.track, isPinned: true, source: 'pinned', position }
+    : { kind: 'playlist', id: target.id, playlist: target.playlist, isPinned: true, source: 'pinned', position };
+}
+
+function updateSpeedDialPlaylist(items: SpeedDialItem[], playlistId: string, update: (playlist: Playlist) => Playlist) {
+  return items.map((item) => item.kind === 'playlist' && item.id === playlistId ? { ...item, playlist: update(item.playlist) } : item);
 }
 
 export function MusicApp({ initialState }: MusicAppProps) {
@@ -318,7 +334,8 @@ export function MusicApp({ initialState }: MusicAppProps) {
         likedPlaylist,
         savedTracks: updated.isSaved ? uniqueTracks([updated, ...previous.savedTracks.filter((track) => track.id !== target.id)]) : previous.savedTracks.filter((track) => track.id !== target.id),
         recentlyPlayed: previous.recentlyPlayed.map(update),
-        playlists: previous.playlists.map((playlist) => ({ ...playlist, tracks: playlist.tracks.map(update) }))
+        playlists: previous.playlists.map((playlist) => ({ ...playlist, tracks: playlist.tracks.map(update) })),
+        speedDial: previous.speedDial.map((item) => item.kind === 'track' && item.id === target.id ? { ...item, track: updated } : item).map((item) => item.kind === 'playlist' ? { ...item, playlist: { ...item.playlist, tracks: item.playlist.tracks.map(update) } } : item)
       };
     });
     return updated;
@@ -344,9 +361,12 @@ export function MusicApp({ initialState }: MusicAppProps) {
       if (playlist.id === previous.likedPlaylist.id) {
         if (previous.likedPlaylist.tracks.some((track) => track.id === pickerTrack.id)) return previous;
         const liked = { ...pickerTrack, isLiked: true, isProtected: true };
-        return { ...previous, likedPlaylist: { ...previous.likedPlaylist, tracks: [liked, ...previous.likedPlaylist.tracks], trackCount: previous.likedPlaylist.trackCount + 1 } };
+        const likedPlaylist = { ...previous.likedPlaylist, tracks: [liked, ...previous.likedPlaylist.tracks], trackCount: previous.likedPlaylist.trackCount + 1 };
+        return { ...previous, likedPlaylist, speedDial: updateSpeedDialPlaylist(previous.speedDial, playlist.id, (item) => item.id === likedPlaylist.id ? likedPlaylist : item) };
       }
-      return { ...previous, playlists: previous.playlists.map((item) => item.id === playlist.id && !item.tracks.some((track) => track.id === pickerTrack.id) ? { ...item, tracks: [...item.tracks, pickerTrack], trackCount: item.trackCount + 1 } : item) };
+      const playlists = previous.playlists.map((item) => item.id === playlist.id && !item.tracks.some((track) => track.id === pickerTrack.id) ? { ...item, tracks: [...item.tracks, pickerTrack], trackCount: item.trackCount + 1 } : item);
+      const nextPlaylist = playlists.find((item) => item.id === playlist.id);
+      return { ...previous, playlists, speedDial: nextPlaylist ? updateSpeedDialPlaylist(previous.speedDial, playlist.id, () => nextPlaylist) : previous.speedDial };
     });
     sendEvent(pickerTrack, 'playlist_add', { metadata: { playlistId: playlist.id } });
     void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}/tracks`), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ track: pickerTrack }) }).catch(() => undefined);
@@ -362,25 +382,34 @@ export function MusicApp({ initialState }: MusicAppProps) {
   const renamePlaylist = useCallback((playlist: Playlist) => {
     const name = window.prompt('Rename playlist', playlist.name);
     if (!name?.trim()) return;
-    setLibrary((previous) => ({ ...previous, playlists: previous.playlists.map((item) => item.id === playlist.id ? { ...item, name: name.trim() } : item) }));
+    setLibrary((previous) => {
+      const update = (item: Playlist) => item.id === playlist.id ? { ...item, name: name.trim() } : item;
+      return { ...previous, playlists: previous.playlists.map(update), likedPlaylist: update(previous.likedPlaylist), speedDial: updateSpeedDialPlaylist(previous.speedDial, playlist.id, update) };
+    });
     void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}`), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: name.trim() }) }).catch(() => undefined);
   }, []);
 
   const deletePlaylist = useCallback((playlist: Playlist) => {
     if (!window.confirm(`Delete ${playlist.name}?`)) return;
-    setLibrary((previous) => ({ ...previous, playlists: previous.playlists.filter((item) => item.id !== playlist.id), quickDial: previous.quickDial.filter((item) => item.id !== playlist.id) }));
+    setLibrary((previous) => ({ ...previous, playlists: previous.playlists.filter((item) => item.id !== playlist.id), speedDial: previous.speedDial.filter((item) => item.kind !== 'playlist' || item.id !== playlist.id) }));
     void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}`), { method: 'DELETE' }).catch(() => undefined);
   }, []);
 
   const changeArtwork = useCallback((playlist: Playlist) => {
     const artworkUrl = window.prompt('Paste an artwork URL', playlist.artworkUrl);
     if (!artworkUrl?.trim()) return;
-    setLibrary((previous) => ({ ...previous, playlists: previous.playlists.map((item) => item.id === playlist.id ? { ...item, artworkUrl: artworkUrl.trim() } : item), quickDial: previous.quickDial.map((item) => item.id === playlist.id ? { ...item, artworkUrl: artworkUrl.trim() } : item) }));
+    setLibrary((previous) => {
+      const update = (item: Playlist) => item.id === playlist.id ? { ...item, artworkUrl: artworkUrl.trim() } : item;
+      return { ...previous, playlists: previous.playlists.map(update), likedPlaylist: update(previous.likedPlaylist), speedDial: updateSpeedDialPlaylist(previous.speedDial, playlist.id, update) };
+    });
     void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}`), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ artworkUrl: artworkUrl.trim() }) }).catch(() => undefined);
   }, []);
 
   const removeTrack = useCallback((playlist: Playlist, track: Track) => {
-    setLibrary((previous) => ({ ...previous, playlists: previous.playlists.map((item) => item.id === playlist.id ? { ...item, tracks: item.tracks.filter((candidate) => candidate.id !== track.id), trackCount: Math.max(0, item.trackCount - 1) } : item) }));
+    setLibrary((previous) => {
+      const update = (item: Playlist) => item.id === playlist.id ? { ...item, tracks: item.tracks.filter((candidate) => candidate.id !== track.id), trackCount: Math.max(0, item.trackCount - 1) } : item;
+      return { ...previous, playlists: previous.playlists.map(update), likedPlaylist: update(previous.likedPlaylist), speedDial: updateSpeedDialPlaylist(previous.speedDial, playlist.id, update) };
+    });
     void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}/tracks?trackId=${encodeURIComponent(track.id)}`), { method: 'DELETE' }).catch(() => undefined);
   }, []);
 
@@ -396,31 +425,59 @@ export function MusicApp({ initialState }: MusicAppProps) {
         void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}/tracks`), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ trackIds: tracks.map((candidate) => candidate.id) }) }).catch(() => undefined);
         return { ...item, tracks };
       };
-      return playlist.id === previous.likedPlaylist.id ? { ...previous, likedPlaylist: reorder(previous.likedPlaylist) } : { ...previous, playlists: previous.playlists.map(reorder) };
+      const nextLibrary = playlist.id === previous.likedPlaylist.id ? { ...previous, likedPlaylist: reorder(previous.likedPlaylist) } : { ...previous, playlists: previous.playlists.map(reorder) };
+      return { ...nextLibrary, speedDial: updateSpeedDialPlaylist(nextLibrary.speedDial, playlist.id, () => playlist.id === nextLibrary.likedPlaylist.id ? nextLibrary.likedPlaylist : nextLibrary.playlists.find((item) => item.id === playlist.id) ?? playlist) };
     });
   }, []);
 
-  const toggleQuickDial = useCallback((playlist: Playlist, enabled: boolean) => {
-    setLibrary((previous) => ({ ...previous, quickDial: enabled ? [...previous.quickDial, playlist].slice(0, 6) : previous.quickDial.filter((item) => item.id !== playlist.id) }));
-    void fetch(appPath('/api/quick-dial'), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ playlistId: playlist.id, enabled }) }).catch(() => undefined);
-  }, []);
+  const toggleSpeedDial = useCallback((target: SpeedDialTarget, enabled: boolean) => {
+    const pinnedCount = library.speedDial.filter((item) => item.isPinned).length;
+    const alreadyPinned = library.speedDial.some((item) => item.isPinned && sameSpeedDialTarget(item, target));
+    if (enabled && !alreadyPinned && pinnedCount >= MAX_SPEED_DIAL_ITEMS) {
+      setNotice('Speed Dial is full. Unpin something before adding another item.');
+      return;
+    }
+
+    setLibrary((previous) => {
+      const existing = previous.speedDial.find((item) => sameSpeedDialTarget(item, target));
+      if (enabled) {
+        const pinned = previous.speedDial.filter((item) => item.isPinned && !sameSpeedDialTarget(item, target));
+        const nextItem = existing ? { ...existing, isPinned: true, source: 'pinned' as const, position: pinned.length } : speedDialItemFromTarget(target, pinned.length);
+        const automatic = previous.speedDial.filter((item) => !item.isPinned && !sameSpeedDialTarget(item, target));
+        return { ...previous, speedDial: [...pinned, nextItem, ...automatic].slice(0, MAX_SPEED_DIAL_ITEMS) };
+      }
+      return { ...previous, speedDial: previous.speedDial.filter((item) => !sameSpeedDialTarget(item, target)) };
+    });
+
+    void fetch(appPath('/api/quick-dial'), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: target.kind, itemId: target.id, enabled }) }).then(async (response) => {
+      const payload = await response.json().catch(() => undefined) as { error?: string; persisted?: boolean; speedDial?: SpeedDialItem[] } | undefined;
+      if (!response.ok) {
+        setNotice(payload?.error ?? 'Speed Dial could not be updated.');
+        return;
+      }
+      if (payload?.persisted && payload.speedDial) setLibrary((previous) => ({ ...previous, speedDial: payload.speedDial! }));
+    }).catch(() => setNotice('Speed Dial could not be updated.'));
+  }, [library.speedDial]);
 
   const clearRecentSearches = useCallback(() => {
     setLibrary((previous) => ({ ...previous, recentSearches: [] }));
     void fetch(appPath('/api/search'), { method: 'DELETE' }).catch(() => undefined);
   }, []);
 
-  const moveQuickDial = useCallback((playlist: Playlist, direction: -1 | 1) => {
-    setLibrary((previous) => {
-      const index = previous.quickDial.findIndex((item) => item.id === playlist.id);
-      const nextIndex = index + direction;
-      if (index < 0 || nextIndex < 0 || nextIndex >= previous.quickDial.length) return previous;
-      const items = [...previous.quickDial];
-      [items[index], items[nextIndex]] = [items[nextIndex], items[index]];
-      void fetch(appPath('/api/quick-dial'), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ playlistIds: items.map((item) => item.id) }) }).catch(() => undefined);
-      return { ...previous, quickDial: items };
-    });
-  }, []);
+  const moveSpeedDial = useCallback((item: SpeedDialItem, direction: -1 | 1) => {
+    if (!item.isPinned) return;
+    const pinned = library.speedDial.filter((candidate) => candidate.isPinned);
+    const index = pinned.findIndex((candidate) => candidate.kind === item.kind && candidate.id === item.id);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= pinned.length) return;
+    [pinned[index], pinned[nextIndex]] = [pinned[nextIndex], pinned[index]];
+    const nextItems = [...pinned, ...library.speedDial.filter((candidate) => !candidate.isPinned)].map((candidate, position) => ({ ...candidate, position }));
+    setLibrary((previous) => ({ ...previous, speedDial: nextItems }));
+    void fetch(appPath('/api/quick-dial'), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items: pinned.map((candidate) => ({ kind: candidate.kind, itemId: candidate.id })) }) }).then(async (response) => {
+      const payload = await response.json().catch(() => undefined) as { persisted?: boolean; speedDial?: SpeedDialItem[] } | undefined;
+      if (response.ok && payload?.persisted && payload.speedDial) setLibrary((previous) => ({ ...previous, speedDial: payload.speedDial! }));
+    }).catch(() => setNotice('Speed Dial order could not be saved.'));
+  }, [library.speedDial]);
 
   const queueTrack = useCallback((track: Track) => {
     void playTrack(track, queue.filter((item) => item.id !== track.id));
@@ -457,9 +514,9 @@ export function MusicApp({ initialState }: MusicAppProps) {
   return (
     <div className="app-shell">
       <main className="app-main" data-active-acquisition-jobs={activeJobCount}>
-        {page === 'home' && <HomeView state={{ ...initialState, library }} recommendations={recommendations} onPlay={(track) => void playTrack(track)} onPlayAll={playAll} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onOpenPlaylist={(playlist) => { setOpenPlaylist(playlist); setPage('library'); }} onToggleQuickDial={toggleQuickDial} onMoveQuickDial={moveQuickDial} />}
+        {page === 'home' && <HomeView state={{ ...initialState, library }} recommendations={recommendations} onPlay={(track) => void playTrack(track)} onPlayAll={playAll} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onOpenPlaylist={(playlist) => { setOpenPlaylist(playlist); setPage('library'); }} onToggleSpeedDial={toggleSpeedDial} onMoveSpeedDial={moveSpeedDial} />}
         {page === 'search' && <SearchView recentSearches={library.recentSearches} onPlay={(track) => void playTrack(track)} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onRadio={startRadio} onClearRecentSearches={clearRecentSearches} />}
-        {page === 'library' && <LibraryView library={library} selectedPlaylist={openPlaylist ? (openPlaylist.id === library.likedPlaylist.id ? library.likedPlaylist : library.playlists.find((playlist) => playlist.id === openPlaylist.id)) : undefined} onSelectPlaylist={setOpenPlaylist} onClosePlaylist={() => setOpenPlaylist(undefined)} onPlay={(track) => void playTrack(track)} onPlayAll={playAll} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onCreatePlaylist={createPlaylist} onRenamePlaylist={renamePlaylist} onDeletePlaylist={deletePlaylist} onChangeArtwork={changeArtwork} onRemoveTrack={removeTrack} onMoveTrack={movePlaylistTrack} />}
+        {page === 'library' && <LibraryView library={library} selectedPlaylist={openPlaylist ? (openPlaylist.id === library.likedPlaylist.id ? library.likedPlaylist : library.playlists.find((playlist) => playlist.id === openPlaylist.id)) : undefined} onSelectPlaylist={setOpenPlaylist} onClosePlaylist={() => setOpenPlaylist(undefined)} onPlay={(track) => void playTrack(track)} onPlayAll={playAll} onLike={toggleLike} onAdd={setPickerTrack} onSave={toggleSave} onCreatePlaylist={createPlaylist} onRenamePlaylist={renamePlaylist} onDeletePlaylist={deletePlaylist} onChangeArtwork={changeArtwork} onRemoveTrack={removeTrack} onMoveTrack={movePlaylistTrack} onToggleSpeedDial={toggleSpeedDial} />}
       </main>
       {notice && <button className="notice" onClick={() => setNotice(undefined)}>{notice}<span>×</span></button>}
       <div className="app-dock">

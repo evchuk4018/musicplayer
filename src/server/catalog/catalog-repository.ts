@@ -2,7 +2,7 @@ import type { QueryResultRow } from 'pg';
 import type { Track } from '@/domain/music';
 import { query, withTransaction } from '@/server/db/client';
 
-type TrackRow = QueryResultRow & {
+export type TrackRow = QueryResultRow & {
   id: string;
   canonical_key: string;
   title: string;

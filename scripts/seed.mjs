@@ -38,7 +38,7 @@ try {
       await pool.query(`INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, [id, trackId, trackPosition]);
       await pool.query(`UPDATE tracks SET is_protected = true WHERE id = $1`, [trackId]);
     }
-    await pool.query(`INSERT INTO quick_dial_items (user_id, playlist_id, position) VALUES ('default', $1, $2) ON CONFLICT (user_id, playlist_id) DO UPDATE SET position = EXCLUDED.position`, [id, position - 1]);
+    await pool.query(`INSERT INTO speed_dial_items (user_id, item_key, item_type, playlist_id, position) VALUES ('default', $1, 'playlist', $2, $3) ON CONFLICT (user_id, item_key) DO UPDATE SET position = EXCLUDED.position, updated_at = now()`, [`playlist:${id}`, id, position - 1]);
   }
   const likedTracks = await pool.query(`SELECT id FROM tracks WHERE is_liked = true ORDER BY last_played_at DESC NULLS LAST, title`);
   for (const [position, row] of likedTracks.rows.entries()) {

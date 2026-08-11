@@ -1,4 +1,4 @@
-import { Bookmark, Heart, ListPlus, Play } from 'lucide-react';
+import { Bookmark, Heart, ListPlus, Pin, Play } from 'lucide-react';
 import type { Track } from '@/domain/music';
 import { Artwork } from './artwork';
 
@@ -8,12 +8,14 @@ type TrackRowProps = {
   onLike: (track: Track) => void;
   onAdd: (track: Track) => void;
   onSave?: (track: Track) => void;
+  onTogglePin?: (track: Track, enabled: boolean) => void;
+  isPinned?: boolean;
   compact?: boolean;
   showPlay?: boolean;
   status?: 'ready' | 'preparing' | 'failed';
 };
 
-export function TrackRow({ track, onPlay, onLike, onAdd, onSave, compact = false, showPlay = true, status }: TrackRowProps) {
+export function TrackRow({ track, onPlay, onLike, onAdd, onSave, onTogglePin, isPinned = false, compact = false, showPlay = true, status }: TrackRowProps) {
   return (
     <div className={`track-row ${compact ? 'track-row-compact' : ''}`}>
       <button className="track-main" onClick={() => onPlay(track)} aria-label={`Play ${track.title} by ${track.artistName}`}>
@@ -33,6 +35,7 @@ export function TrackRow({ track, onPlay, onLike, onAdd, onSave, compact = false
         <ListPlus size={18} />
       </button>
       {onSave && <button className={`icon-button row-action ${track.isSaved ? 'is-saved' : ''}`} onClick={() => onSave(track)} aria-label={track.isSaved ? `Unsave ${track.title}` : `Save ${track.title}`}><Bookmark size={18} fill={track.isSaved ? 'currentColor' : 'none'} /></button>}
+      {onTogglePin && <button className={`icon-button row-action ${isPinned ? 'is-pinned' : ''}`} onClick={() => onTogglePin(track, !isPinned)} aria-label={isPinned ? `Unpin ${track.title} from Speed Dial` : `Pin ${track.title} to Speed Dial`}><Pin size={18} fill={isPinned ? 'currentColor' : 'none'} /></button>}
     </div>
   );
 }

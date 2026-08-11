@@ -61,6 +61,28 @@ export type Playlist = {
   tracks: Track[];
 };
 
+export type SpeedDialTarget =
+  | { kind: 'track'; id: string; track: Track }
+  | { kind: 'playlist'; id: string; playlist: Playlist };
+
+export type SpeedDialItem =
+  | {
+      kind: 'track';
+      id: string;
+      track: Track;
+      isPinned: boolean;
+      source: 'pinned' | 'frequent';
+      position: number;
+    }
+  | {
+      kind: 'playlist';
+      id: string;
+      playlist: Playlist;
+      isPinned: boolean;
+      source: 'pinned' | 'frequent';
+      position: number;
+    };
+
 export type AcquisitionStatus = 'queued' | 'processing' | 'ready' | 'failed' | 'cancelled' | 'blocked';
 
 export type AcquisitionJob = {
@@ -80,7 +102,7 @@ export type LibrarySnapshot = {
   recentlyPlayed: Track[];
   savedTracks: Track[];
   recentSearches: string[];
-  quickDial: Playlist[];
+  speedDial: SpeedDialItem[];
 };
 
 export type AppState = {

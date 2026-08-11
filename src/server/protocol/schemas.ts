@@ -48,9 +48,12 @@ export const eventSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional()
 });
 
-export const quickDialSchema = z.object({
-  playlistId: z.string().min(1),
+export const speedDialPinSchema = z.object({
+  kind: z.enum(['track', 'playlist']),
+  itemId: z.string().min(1),
   enabled: z.boolean()
 });
 
-export const queueOrderSchema = z.object({ playlistIds: z.array(z.string().min(1)).max(50) });
+export const speedDialOrderSchema = z.object({
+  items: z.array(z.object({ kind: z.enum(['track', 'playlist']), itemId: z.string().min(1) })).max(9)
+});
