@@ -24,6 +24,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/db ./db
 COPY --from=builder /app/scripts/migrate.mjs ./scripts/migrate.mjs
 COPY --from=builder /app/scripts/seed.mjs ./scripts/seed.mjs
+COPY --from=builder /app/scripts/seed-liked-songs-once.mjs ./scripts/seed-liked-songs-once.mjs
 COPY --from=builder /app/scripts/check-migrations.mjs ./scripts/check-migrations.mjs
 RUN chown -R nextjs:nodejs /app
 USER nextjs
