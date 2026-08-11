@@ -21,6 +21,15 @@ export async function ensureTrackReady(track: Track) {
 }
 
 export async function acquisitionHealth() {
+  if (process.env.WORKER_URL) {
+    try {
+      const response = await fetch(`${process.env.WORKER_URL}/health`, { cache: 'no-store' });
+      if (!response.ok) return { status: 'down' as const, detail: `worker HTTP ${response.status}` };
+      return await response.json() as { status: 'up' | 'down' | 'disabled'; detail?: string };
+    } catch (error) {
+      return { status: 'down' as const, detail: error instanceof Error ? error.message : 'worker unreachable' };
+    }
+  }
   return provider.health();
 }
 

@@ -61,6 +61,7 @@ services:
       NEXT_PUBLIC_BASE_PATH: ${MUSICPLAYER_BASE_PATH:-}
       MUSIC_CATALOG_PROVIDER: ${MUSIC_CATALOG_PROVIDER:-deezer}
       NAVIDROME_URL: http://navidrome:4533
+      WORKER_URL: http://worker:4000
       NAVIDROME_USER: ${NAVIDROME_USER:-}
       NAVIDROME_PASSWORD: ${NAVIDROME_PASSWORD:-}
       ACQUISITION_ENABLED: ${ACQUISITION_ENABLED:-false}
@@ -76,7 +77,7 @@ services:
       - "127.0.0.1:${MUSICPLAYER_WEB_PORT:-3090}:3000"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/api/health"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000${MUSICPLAYER_BASE_PATH:-}/api/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -98,6 +99,7 @@ services:
       SPOTDL_OUTPUT: /music
       SPOTDL_MAX_CONCURRENT: ${SPOTDL_MAX_CONCURRENT:-1}
       RETENTION_DAYS: ${RETENTION_DAYS:-30}
+      WORKER_PORT: 4000
     volumes:
       - ${MUSICPLAYER_MUSIC_ROOT:-./data/music}:/music
     depends_on:
@@ -107,7 +109,7 @@ services:
         condition: service_started
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"process.exit(0)\""]
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:4000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
       interval: 30s
       timeout: 10s
       retries: 3

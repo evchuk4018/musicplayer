@@ -1,5 +1,6 @@
 import { claimNextJob, blockJob, completeJob, failJob, updateJobProgress } from '@/server/acquisition/acquisition-repository';
 import { unlink } from 'node:fs/promises';
+import { createServer } from 'node:http';
 import { SpotDlAdapter } from '@/server/acquisition/spotdl-adapter';
 import { getStoredTrackById } from '@/server/catalog/catalog-repository';
 import { databaseConfigured, closeDatabase } from '@/server/db/client';
@@ -9,6 +10,17 @@ import { pruneDisposableCache } from '@/server/retention/retention-service';
 const acquisition = new SpotDlAdapter();
 const pollMs = Number(process.env.WORKER_POLL_MS ?? 5000);
 let stopping = false;
+
+const healthServer = createServer(async (request, response) => {
+  if (request.url !== '/health') {
+    response.writeHead(404).end();
+    return;
+  }
+  const status = await acquisition.health();
+  response.setHeader('content-type', 'application/json');
+  response.writeHead(status.status === 'down' ? 503 : 200).end(JSON.stringify(status));
+});
+healthServer.listen(Number(process.env.WORKER_PORT ?? 4000), '0.0.0.0');
 
 async function processOne() {
   const job = await claimNextJob();
@@ -56,7 +68,7 @@ async function run() {
   }
 }
 
-process.on('SIGTERM', () => { stopping = true; });
-process.on('SIGINT', () => { stopping = true; });
+process.on('SIGTERM', () => { stopping = true; healthServer.close(); });
+process.on('SIGINT', () => { stopping = true; healthServer.close(); });
 
 run().finally(() => closeDatabase());

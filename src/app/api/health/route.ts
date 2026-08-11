@@ -18,6 +18,6 @@ export async function GET() {
     navidrome.health(),
     acquisitionHealth()
   ]);
-  const healthy = database.status !== 'down' && navidromeStatus.status !== 'down';
+  const healthy = database.status !== 'down' && navidromeStatus.status !== 'down' && acquisition.status !== 'down';
   return Response.json({ status: healthy ? 'healthy' : 'degraded', services: { database, navidrome: navidromeStatus, acquisition } }, { status: healthy ? 200 : 503 });
 }
