@@ -15,6 +15,18 @@ const artworkUrls = [
   'https://images.unsplash.com/photo-1524368535928-5b5e00ddc76b?auto=format&fit=crop&w=900&q=85'
 ];
 
+async function resolveArtwork(song, fallback) {
+  const query = encodeURIComponent(`${song.artist} ${song.title}`);
+  try {
+    const response = await fetch(`https://api.deezer.com/search?q=${query}&limit=1`);
+    if (!response.ok) return fallback;
+    const payload = await response.json();
+    return payload.data?.[0]?.album?.cover_big ?? payload.data?.[0]?.album?.cover_medium ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 const songs = [
   { title: 'MY JEALOUSY (Super Slowed)', artist: 'vivi baby & ovg!', durationSeconds: 187, genre: 'pop' },
   { title: 'LET THE WORLD BURN (TikTok Guitar Cover x Hoodtrap Mashup)', artist: 'R3BEL, Joshua Guitar, & Kryd', genre: 'pop' },
@@ -94,7 +106,7 @@ async function main() {
       const artistId = `oneoff:artist:${slug(song.artist)}`;
       const trackId = `oneoff:track:${slug(song.artist)}:${slug(song.title)}`;
       const canonicalKey = `${song.artist.toLowerCase()}::${song.title.toLowerCase()}`;
-      const artworkUrl = artworkUrls[position % artworkUrls.length];
+      const artworkUrl = await resolveArtwork(song, artworkUrls[position % artworkUrls.length]);
 
       await client.query(
         `INSERT INTO artists (id, name, image_url, genres, source)

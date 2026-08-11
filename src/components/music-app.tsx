@@ -141,6 +141,15 @@ export function MusicApp({ initialState }: MusicAppProps) {
     setProgressSeconds(0);
     setDurationSeconds(track.durationSeconds);
     setNotice(undefined);
+    const audio = audioRef.current;
+    const immediateUrl = track.isLocal
+      ? appPath(`/api/stream/${encodeURIComponent(track.id)}`)
+      : track.previewUrl;
+    if (audio && immediateUrl) {
+      audio.src = immediateUrl;
+      audio.load();
+      void audio.play().then(() => setIsPlaying(true)).catch(() => undefined);
+    }
     try {
       const response = await fetch(appPath('/api/play'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ track }) });
       const result = await response.json().catch(() => undefined) as { status?: string; audioUrl?: string; job?: AcquisitionJob; detail?: string; error?: string } | undefined;
@@ -156,13 +165,14 @@ export function MusicApp({ initialState }: MusicAppProps) {
         setIsPlaying(false);
         setNotice('This song is being prepared. Playback will be ready when the file arrives.');
       } else {
-        const audio = audioRef.current;
         if (audio) {
           await new Promise<void>((resolve, reject) => {
             const onError = () => reject(new Error('The audio source could not be loaded'));
             audio.addEventListener('error', onError, { once: true });
-            audio.src = url;
-            audio.load();
+            if (audio.src !== new URL(url, window.location.href).href) {
+              audio.src = url;
+              audio.load();
+            }
             void audio.play().then(() => {
               audio.removeEventListener('error', onError);
               resolve();

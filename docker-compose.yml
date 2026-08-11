@@ -62,12 +62,15 @@ services:
       MUSIC_CATALOG_PROVIDER: ${MUSIC_CATALOG_PROVIDER:-deezer}
       NAVIDROME_URL: http://navidrome:4533
       WORKER_URL: http://worker:4000
+      MUSIC_ROOT: /music
       NAVIDROME_USER: ${NAVIDROME_USER:-}
       NAVIDROME_PASSWORD: ${NAVIDROME_PASSWORD:-}
       ACQUISITION_ENABLED: ${ACQUISITION_ENABLED:-false}
       AUTHORIZED_ACQUISITION: ${AUTHORIZED_ACQUISITION:-false}
       PREFETCH_SIZE: ${PREFETCH_SIZE:-5}
       RETENTION_DAYS: ${RETENTION_DAYS:-30}
+    volumes:
+      - ${MUSICPLAYER_MUSIC_ROOT:-./data/music}:/music:ro
     depends_on:
       postgres:
         condition: service_healthy
