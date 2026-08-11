@@ -37,7 +37,7 @@ export function SpeedDial({ items, onPlayTrack, onOpenPlaylist, onTogglePin, onM
               <button className="icon-button" onClick={() => onMove(item, -1)} disabled={pinnedIndex === 0} aria-label={`Move ${name} left`}><ChevronLeft size={16} /></button>
               <button className="icon-button" onClick={() => onMove(item, 1)} disabled={pinnedIndex === pinnedItems.length - 1} aria-label={`Move ${name} right`}><ChevronRight size={16} /></button>
               <button className="icon-button is-pinned" onClick={() => onTogglePin(targetFor(item), false)} aria-label={`Unpin ${name} from Speed Dial`}><Pin size={15} fill="currentColor" /></button>
-            </div> : <span className="speed-card-source">Often played</span>}
+            </div> : null}
           </article>;
         })}
       </div> : <div className="empty-state speed-dial-empty">Pin songs or playlists in Library, or listen to a few favorites to fill Speed Dial.</div>}

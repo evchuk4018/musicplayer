@@ -74,17 +74,17 @@ strong { font-weight: 700; }
 
 .speed-dial-section { padding: 18px 0 3px; }
 .speed-dial-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-.speed-card { min-width: 0; padding: 0; overflow: hidden; background: linear-gradient(145deg, rgba(255,255,255,0.09), rgba(255,255,255,0.045)); border-radius: 14px; }
+.speed-card { position: relative; min-width: 0; aspect-ratio: 1; padding: 0; overflow: hidden; background: linear-gradient(145deg, rgba(255,255,255,0.09), rgba(255,255,255,0.045)); border-radius: 14px; }
 .speed-card.is-pinned:first-child { outline: 2px solid rgba(201,249,74,0.95); outline-offset: -2px; }
-.speed-card-main { display: block; width: 100%; padding: 0; background: transparent; text-align: left; }
-.speed-card-main .artwork { width: 100%; height: auto; aspect-ratio: 1; border-radius: 0; }
-.speed-card-main > span, .speed-card-main > small { display: block; overflow: hidden; padding-right: 9px; padding-left: 9px; text-overflow: ellipsis; white-space: nowrap; }
-.speed-card-main > span { padding-top: 9px; padding-bottom: 2px; color: var(--text); font-size: 13px; font-weight: 750; }
-.speed-card-main > small { padding-bottom: 7px; color: var(--muted); font-size: 10px; }
-.speed-card-tools { display: flex; justify-content: flex-end; gap: 0; padding: 0 4px 3px; }
+.speed-card-main { position: relative; display: block; width: 100%; height: 100%; padding: 0; background: transparent; text-align: left; }
+.speed-card-main::after { position: absolute; z-index: 1; right: 0; bottom: 0; left: 0; height: 58%; content: ""; pointer-events: none; background: linear-gradient(transparent, rgba(8,9,13,0.92)); }
+.speed-card-main .artwork { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; }
+.speed-card-main > span, .speed-card-main > small { position: absolute; z-index: 2; right: 9px; left: 9px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+.speed-card-main > span { bottom: 23px; color: var(--text); font-size: 13px; font-weight: 750; }
+.speed-card-main > small { bottom: 8px; color: var(--muted-strong); font-size: 10px; }
+.speed-card-tools { position: absolute; z-index: 3; top: 4px; right: 4px; display: flex; justify-content: flex-end; gap: 0; padding: 0 2px; background: rgba(8,9,13,0.58); border-radius: 999px; backdrop-filter: blur(8px); }
 .speed-card-tools .icon-button { width: 25px; height: 25px; color: var(--muted); }
 .speed-card-tools .icon-button.is-pinned { color: var(--accent); }
-.speed-card-source { display: block; padding: 1px 9px 8px; color: var(--accent); font-size: 9px; font-weight: 750; letter-spacing: 0.03em; text-transform: uppercase; }
 .speed-dial-empty { margin-top: 8px; padding-right: 18px; padding-left: 18px; background: rgba(255,255,255,0.035); border-radius: 14px; }
 
 .track-list { display: grid; gap: 2px; }
