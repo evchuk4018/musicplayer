@@ -1,6 +1,6 @@
 import { DEMO_APP_STATE } from '@/lib/demo-data';
 import { databaseConfigured } from '@/server/db/client';
-import { getLibrarySnapshot, reorderQuickDial, toggleQuickDial } from '@/server/library/playlist-repository';
+import { reorderQuickDial, toggleQuickDial } from '@/server/library/playlist-repository';
 import { readJson, badRequest, serverError } from '@/server/protocol/http';
 import { quickDialSchema, queueOrderSchema } from '@/server/protocol/schemas';
 

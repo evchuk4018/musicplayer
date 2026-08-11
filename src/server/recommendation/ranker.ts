@@ -15,7 +15,6 @@ function daysSince(date: Date) {
 
 export function rankRecommendations(candidates: Track[], seed: Track | undefined, relationships: ArtistRelationship[], events: Event[], limit = 12) {
   const recentTrackCount = new Map<string, number>();
-  const recentArtistCount = new Map<string, number>();
   const skippedTracks = new Map<string, number>();
   for (const event of events) {
     const age = daysSince(event.occurred_at);

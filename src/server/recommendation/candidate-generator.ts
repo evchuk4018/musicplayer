@@ -14,7 +14,6 @@ export async function generateCandidates(seed?: Track) {
     }
   }
   const relationships = seed ? await relatedArtistsFor(seed) : [];
-  const relatedIds = new Set(relationships.map((item) => item.artistId));
   const candidates = [...stored, ...base].filter((track) => track.id !== seed?.id);
   return {
     candidates: Array.from(new Map(candidates.map((track) => [track.canonicalKey, track])).values()).slice(0, 100),
