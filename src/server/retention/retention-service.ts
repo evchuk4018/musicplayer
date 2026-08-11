@@ -8,7 +8,7 @@ export async function pruneDisposableCache() {
        AND is_liked = false
        AND is_saved = false
        AND is_protected = false
-       AND last_played_at < now() - ($1 || ' days')::interval
+       AND coalesce(last_played_at, acquired_at) < now() - ($1 || ' days')::interval
        AND NOT EXISTS (SELECT 1 FROM playlist_tracks pt JOIN playlists p ON p.id = pt.playlist_id WHERE pt.track_id = tracks.id AND p.is_protected = true)
      RETURNING id, local_path`,
     [days]

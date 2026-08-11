@@ -10,7 +10,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ trac
   const { trackId } = await params;
   const track = process.env.DATABASE_URL ? await getStoredTrackById(decodeURIComponent(trackId)).catch(() => undefined) : undefined;
   if (!track?.localPath) return new Response('Track is not local', { status: 404 });
-  const root = path.resolve(process.env.MUSIC_ROOT ?? './data/music');
+  const root = path.resolve(/*turbopackIgnore: true*/ process.env.MUSIC_ROOT ?? './data/music');
   const target = path.resolve(track.localPath);
   if (path.relative(root, target).startsWith('..')) return new Response('Invalid media path', { status: 403 });
   const info = await stat(target).catch(() => undefined);

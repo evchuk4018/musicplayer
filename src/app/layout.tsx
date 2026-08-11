@@ -3,14 +3,15 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-inter' });
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
 export const metadata: Metadata = {
   title: 'Pulse · Your music, in one place',
   description: 'A private, self-hosted music player for your library and the music you are looking for.',
   applicationName: 'Pulse',
-  manifest: '/manifest.webmanifest',
+  manifest: `${basePath}/manifest.webmanifest`,
   appleWebApp: { capable: true, title: 'Pulse', statusBarStyle: 'black-translucent' },
-  icons: { icon: '/icon.svg', apple: '/icon.svg' }
+  icons: { icon: `${basePath}/icon.svg`, apple: `${basePath}/icon.svg` }
 };
 
 export const viewport: Viewport = {

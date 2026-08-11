@@ -14,7 +14,7 @@ export class SpotDlAdapter implements AcquisitionProvider {
     if (process.env.ACQUISITION_ENABLED !== 'true') return { status: 'disabled' as const, detail: 'Acquisition is disabled by configuration' };
     if (process.env.AUTHORIZED_ACQUISITION !== 'true') return { status: 'disabled' as const, detail: 'Authorization gate is not enabled' };
     return new Promise<{ status: 'up' | 'down'; detail?: string }>((resolve) => {
-      const child = spawn(process.env.SPOTDL_COMMAND ?? 'spotdl', ['--version'], { stdio: ['ignore', 'pipe', 'pipe'] });
+      const child = spawn(/*turbopackIgnore: true*/ (process.env.SPOTDL_COMMAND ?? 'spotdl'), ['--version'], { stdio: ['ignore', 'pipe', 'pipe'] });
       let output = '';
       child.stdout.on('data', (chunk: Buffer) => { output += chunk.toString(); });
       child.on('error', (error) => resolve({ status: 'down', detail: error.message }));
@@ -27,7 +27,7 @@ export class SpotDlAdapter implements AcquisitionProvider {
     const query = `${track.artistName} - ${track.title}`;
     const destination = path.join(root, track.artistName, `${track.title}.mp3`);
     await new Promise<void>((resolve, reject) => {
-      const child = spawn(process.env.SPOTDL_COMMAND ?? 'spotdl', ['download', query, '--output', root], { stdio: ['ignore', 'pipe', 'pipe'] });
+      const child = spawn(/*turbopackIgnore: true*/ (process.env.SPOTDL_COMMAND ?? 'spotdl'), ['download', query, '--output', root], { stdio: ['ignore', 'pipe', 'pipe'] });
       let stderr = '';
       child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
       child.stdout.on('data', (chunk: Buffer) => {

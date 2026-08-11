@@ -163,6 +163,12 @@ strong { font-weight: 700; }
 .saved-section { margin-top: 34px; }
 
 .playlist-detail { padding-top: 16px; }
+.catalog-detail .back-link { display: inline-flex; align-items: center; gap: 7px; }
+.catalog-detail-hero, .artist-detail-hero { display: grid; justify-items: center; margin: 22px 0 28px; text-align: center; }
+.catalog-detail-hero .artwork { width: min(56vw, 260px); height: min(56vw, 260px); margin-bottom: 20px; }
+.artist-detail-hero .artwork { width: min(48vw, 210px); height: min(48vw, 210px); margin-bottom: 18px; }
+.catalog-detail-hero h1, .artist-detail-hero h1 { margin-top: 8px; }
+.catalog-detail-hero p, .artist-detail-hero p { margin-top: 8px; color: var(--muted); font-size: 13px; }
 .back-link { padding: 6px 0; background: transparent; color: var(--muted-strong); font-weight: 700; }
 .playlist-hero { display: grid; justify-items: center; margin: 22px 0 28px; text-align: center; }
 .playlist-hero .artwork { width: min(56vw, 260px); height: min(56vw, 260px); margin-bottom: 20px; }

@@ -1,5 +1,5 @@
 import type { Album, Artist, Track } from '@/domain/music';
-import type { CatalogProvider, CatalogSearch } from './types';
+import type { ArtistCatalog, CatalogProvider, CatalogSearch } from './types';
 
 type DeezerTrack = {
   id: number;
@@ -120,5 +120,19 @@ export class DeezerCatalogProvider implements CatalogProvider {
       similarArtistIds: [],
       source: 'deezer' as const
     }));
+  }
+
+  async getArtistCatalog(artistId: string): Promise<ArtistCatalog | undefined> {
+    const artist = await this.getArtist(artistId);
+    const id = artistId.split(':').at(-1);
+    if (!artist || !id) return undefined;
+    const [topResponse, albumsResponse] = await Promise.all([
+      fetch(`https://api.deezer.com/artist/${id}/top?limit=50`, { next: { revalidate: 1800 } }),
+      fetch(`https://api.deezer.com/artist/${id}/albums?limit=24`, { next: { revalidate: 1800 } })
+    ]);
+    const top = topResponse.ok ? await topResponse.json() as { data?: DeezerTrack[] } : { data: [] };
+    const albumPayload = albumsResponse.ok ? await albumsResponse.json() as { data?: Array<{ id: number; title: string; cover_big?: string; cover_medium?: string; release_date?: string }> } : { data: [] };
+    const albums = (albumPayload.data ?? []).map((item) => ({ id: `deezer:album:${item.id}`, title: item.title, artistId, artistName: artist.name, artworkUrl: imageFor(item.cover_big ?? item.cover_medium), releaseYear: item.release_date ? Number(item.release_date.slice(0, 4)) : undefined, tracks: [], source: 'deezer' as const }));
+    return { artist, tracks: (top.data ?? []).map(mapTrack), albums };
   }
 }

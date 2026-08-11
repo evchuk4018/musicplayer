@@ -2,9 +2,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-musicplayer}
-      POSTGRES_USER: ${POSTGRES_USER:-musicplayer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${MUSICPLAYER_POSTGRES_DB:-musicplayer}
+      POSTGRES_USER: ${MUSICPLAYER_POSTGRES_USER:-musicplayer}
+      POSTGRES_PASSWORD: ${MUSICPLAYER_POSTGRES_PASSWORD:-change-me}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -23,7 +23,7 @@ services:
       ND_LOGLEVEL: info
       ND_SESSIONTIMEOUT: 24h
     volumes:
-      - ${MUSIC_ROOT:-./data/music}:/music
+      - ${MUSICPLAYER_MUSIC_ROOT:-./data/music}:/music
       - navidrome_data:/data
     restart: unless-stopped
     healthcheck:
@@ -38,7 +38,7 @@ services:
       dockerfile: Dockerfile
       target: runner
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-musicplayer}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-musicplayer}
+      DATABASE_URL: postgresql://${MUSICPLAYER_POSTGRES_USER:-musicplayer}:${MUSICPLAYER_POSTGRES_PASSWORD:-change-me}@postgres:5432/${MUSICPLAYER_POSTGRES_DB:-musicplayer}
     depends_on:
       postgres:
         condition: service_healthy
@@ -50,12 +50,15 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runner
+      args:
+        NEXT_PUBLIC_BASE_PATH: ${MUSICPLAYER_BASE_PATH:-}
     environment:
       NODE_ENV: production
       PORT: 3000
       HOSTNAME: 0.0.0.0
-      DATABASE_URL: postgresql://${POSTGRES_USER:-musicplayer}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-musicplayer}
+      DATABASE_URL: postgresql://${MUSICPLAYER_POSTGRES_USER:-musicplayer}:${MUSICPLAYER_POSTGRES_PASSWORD:-change-me}@postgres:5432/${MUSICPLAYER_POSTGRES_DB:-musicplayer}
       APP_URL: ${APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_BASE_PATH: ${MUSICPLAYER_BASE_PATH:-}
       MUSIC_CATALOG_PROVIDER: ${MUSIC_CATALOG_PROVIDER:-deezer}
       NAVIDROME_URL: http://navidrome:4533
       NAVIDROME_USER: ${NAVIDROME_USER:-}
@@ -70,7 +73,7 @@ services:
       navidrome:
         condition: service_started
     ports:
-      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+      - "127.0.0.1:${MUSICPLAYER_WEB_PORT:-3090}:3000"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/api/health"]
@@ -84,7 +87,7 @@ services:
       dockerfile: Dockerfile.worker
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-musicplayer}:${POSTGRES_PASSWORD:-change-me}@postgres:5432/${POSTGRES_DB:-musicplayer}
+      DATABASE_URL: postgresql://${MUSICPLAYER_POSTGRES_USER:-musicplayer}:${MUSICPLAYER_POSTGRES_PASSWORD:-change-me}@postgres:5432/${MUSICPLAYER_POSTGRES_DB:-musicplayer}
       MUSIC_ROOT: /music
       NAVIDROME_URL: http://navidrome:4533
       NAVIDROME_USER: ${NAVIDROME_USER:-}
@@ -96,7 +99,7 @@ services:
       SPOTDL_MAX_CONCURRENT: ${SPOTDL_MAX_CONCURRENT:-1}
       RETENTION_DAYS: ${RETENTION_DAYS:-30}
     volumes:
-      - ${MUSIC_ROOT:-./data/music}:/music
+      - ${MUSICPLAYER_MUSIC_ROOT:-./data/music}:/music
     depends_on:
       postgres:
         condition: service_healthy

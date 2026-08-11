@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AppState, AcquisitionJob, LibrarySnapshot, Playlist, QueueItem, Track } from '@/domain/music';
+import { appPath } from '@/lib/api-path';
 import { BottomNav, type PageName } from './bottom-nav';
 import { Artwork } from './artwork';
 import { HomeView } from './home-view';
@@ -45,16 +46,16 @@ export function MusicApp({ initialState }: MusicAppProps) {
   const activeJobCount = useMemo(() => jobs.filter((job) => job.status === 'queued' || job.status === 'processing').length, [jobs]);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) void navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+    if ('serviceWorker' in navigator) void navigator.serviceWorker.register(appPath('/sw.js')).catch(() => undefined);
   }, []);
 
   const sendEvent = useCallback((track: Track, eventType: string, extra: Record<string, unknown> = {}) => {
-    void fetch('/api/events', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ trackId: track.id, eventType, ...extra }) }).catch(() => undefined);
+    void fetch(appPath('/api/events'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ trackId: track.id, eventType, ...extra }) }).catch(() => undefined);
   }, []);
 
   const prefetchTrack = useCallback((track: Track) => {
     if (track.isLocal) return Promise.resolve();
-    return fetch('/api/play', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ track, prefetch: true }) }).then(async (response) => {
+    return fetch(appPath('/api/play'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ track, prefetch: true }) }).then(async (response) => {
       if (!response.ok) return;
       const result = await response.json() as { job?: AcquisitionJob };
       if (result.job) setJobs((previous) => [...previous.filter((job) => job.trackId !== track.id), result.job!]);
@@ -65,7 +66,7 @@ export function MusicApp({ initialState }: MusicAppProps) {
     let candidates = providedQueue.filter((item) => item.id !== seed.id);
     if (candidates.length < 5) {
       try {
-        const response = await fetch(`/api/recommendations?context=${providedQueue.length ? 'home' : 'track-radio'}`);
+        const response = await fetch(appPath(`/api/recommendations?context=${providedQueue.length ? 'home' : 'track-radio'}`));
         if (response.ok) {
           const payload = await response.json() as { tracks: Track[] };
           setRecommendations((previous) => uniqueTracks([...payload.tracks, ...previous]));
@@ -87,7 +88,7 @@ export function MusicApp({ initialState }: MusicAppProps) {
     setDurationSeconds(track.durationSeconds);
     setNotice(undefined);
     try {
-      const response = await fetch('/api/play', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ track }) });
+      const response = await fetch(appPath('/api/play'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ track }) });
       const result = await response.json() as { status?: string; audioUrl?: string; job?: AcquisitionJob; detail?: string };
       const url = result.audioUrl ?? track.previewUrl;
       const state = result.status === 'ready' ? 'ready' : result.status === 'preview' ? 'preparing' : 'preparing';
@@ -134,7 +135,7 @@ export function MusicApp({ initialState }: MusicAppProps) {
     }
     if (!next && autoplayEnabled && current) {
       try {
-        const response = await fetch('/api/recommendations?context=track-radio');
+        const response = await fetch(appPath('/api/recommendations?context=track-radio'));
         if (response.ok) {
           const payload = await response.json() as { tracks: Track[] };
           next = payload.tracks[0] ? queueItem(payload.tracks[0], payload.tracks[0].isLocal ? 'ready' : 'preparing') : undefined;
@@ -181,7 +182,7 @@ export function MusicApp({ initialState }: MusicAppProps) {
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      void fetch('/api/acquisition/jobs').then((response) => response.ok ? response.json() as Promise<{ jobs: AcquisitionJob[] }> : undefined).then((payload) => { if (payload?.jobs) setJobs(payload.jobs); }).catch(() => undefined);
+      void fetch(appPath('/api/acquisition/jobs')).then((response) => response.ok ? response.json() as Promise<{ jobs: AcquisitionJob[] }> : undefined).then((payload) => { if (payload?.jobs) setJobs(payload.jobs); }).catch(() => undefined);
     }, 8000);
     return () => window.clearInterval(timer);
   }, []);
@@ -211,7 +212,7 @@ export function MusicApp({ initialState }: MusicAppProps) {
     const liked = !track.isLiked;
     const updated = updateTrackEverywhere(track, { isLiked: liked, isProtected: liked || track.isProtected });
     sendEvent(updated, liked ? 'like' : 'unlike');
-    void fetch(`/api/tracks/${encodeURIComponent(track.id)}/like`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ liked, track: updated }) }).catch(() => undefined);
+    void fetch(appPath(`/api/tracks/${encodeURIComponent(track.id)}/like`), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ liked, track: updated }) }).catch(() => undefined);
   }, [sendEvent, updateTrackEverywhere]);
 
   const addToPlaylist = useCallback((playlist: Playlist) => {
@@ -225,37 +226,37 @@ export function MusicApp({ initialState }: MusicAppProps) {
       return { ...previous, playlists: previous.playlists.map((item) => item.id === playlist.id && !item.tracks.some((track) => track.id === pickerTrack.id) ? { ...item, tracks: [...item.tracks, pickerTrack], trackCount: item.trackCount + 1 } : item) };
     });
     sendEvent(pickerTrack, 'playlist_add', { metadata: { playlistId: playlist.id } });
-    void fetch(`/api/playlists/${encodeURIComponent(playlist.id)}/tracks`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ track: pickerTrack }) }).catch(() => undefined);
+    void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}/tracks`), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ track: pickerTrack }) }).catch(() => undefined);
     setPickerTrack(undefined);
   }, [pickerTrack, sendEvent]);
 
   const createPlaylist = useCallback(() => {
     const name = window.prompt('Name your playlist');
     if (!name?.trim()) return;
-    void fetch('/api/playlists', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: name.trim() }) }).then((response) => response.json()).then((payload: { playlist?: Playlist }) => { if (payload.playlist) setLibrary((previous) => ({ ...previous, playlists: [...previous.playlists, payload.playlist!] })); }).catch(() => setNotice('Couldn’t create that playlist.'));
+    void fetch(appPath('/api/playlists'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: name.trim() }) }).then((response) => response.json()).then((payload: { playlist?: Playlist }) => { if (payload.playlist) setLibrary((previous) => ({ ...previous, playlists: [...previous.playlists, payload.playlist!] })); }).catch(() => setNotice('Couldn’t create that playlist.'));
   }, []);
 
   const renamePlaylist = useCallback((playlist: Playlist) => {
     const name = window.prompt('Rename playlist', playlist.name);
     if (!name?.trim()) return;
     setLibrary((previous) => ({ ...previous, playlists: previous.playlists.map((item) => item.id === playlist.id ? { ...item, name: name.trim() } : item) }));
-    void fetch(`/api/playlists/${encodeURIComponent(playlist.id)}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: name.trim() }) }).catch(() => undefined);
+    void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}`), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: name.trim() }) }).catch(() => undefined);
   }, []);
 
   const deletePlaylist = useCallback((playlist: Playlist) => {
     if (!window.confirm(`Delete ${playlist.name}?`)) return;
     setLibrary((previous) => ({ ...previous, playlists: previous.playlists.filter((item) => item.id !== playlist.id), quickDial: previous.quickDial.filter((item) => item.id !== playlist.id) }));
-    void fetch(`/api/playlists/${encodeURIComponent(playlist.id)}`, { method: 'DELETE' }).catch(() => undefined);
+    void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}`), { method: 'DELETE' }).catch(() => undefined);
   }, []);
 
   const removeTrack = useCallback((playlist: Playlist, track: Track) => {
     setLibrary((previous) => ({ ...previous, playlists: previous.playlists.map((item) => item.id === playlist.id ? { ...item, tracks: item.tracks.filter((candidate) => candidate.id !== track.id), trackCount: Math.max(0, item.trackCount - 1) } : item) }));
-    void fetch(`/api/playlists/${encodeURIComponent(playlist.id)}/tracks?trackId=${encodeURIComponent(track.id)}`, { method: 'DELETE' }).catch(() => undefined);
+    void fetch(appPath(`/api/playlists/${encodeURIComponent(playlist.id)}/tracks?trackId=${encodeURIComponent(track.id)}`), { method: 'DELETE' }).catch(() => undefined);
   }, []);
 
   const toggleQuickDial = useCallback((playlist: Playlist, enabled: boolean) => {
     setLibrary((previous) => ({ ...previous, quickDial: enabled ? [...previous.quickDial, playlist].slice(0, 6) : previous.quickDial.filter((item) => item.id !== playlist.id) }));
-    void fetch('/api/quick-dial', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ playlistId: playlist.id, enabled }) }).catch(() => undefined);
+    void fetch(appPath('/api/quick-dial'), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ playlistId: playlist.id, enabled }) }).catch(() => undefined);
   }, []);
 
   const moveQuickDial = useCallback((playlist: Playlist, direction: -1 | 1) => {
@@ -265,7 +266,7 @@ export function MusicApp({ initialState }: MusicAppProps) {
       if (index < 0 || nextIndex < 0 || nextIndex >= previous.quickDial.length) return previous;
       const items = [...previous.quickDial];
       [items[index], items[nextIndex]] = [items[nextIndex], items[index]];
-      void fetch('/api/quick-dial', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ playlistIds: items.map((item) => item.id) }) }).catch(() => undefined);
+      void fetch(appPath('/api/quick-dial'), { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ playlistIds: items.map((item) => item.id) }) }).catch(() => undefined);
       return { ...previous, quickDial: items };
     });
   }, []);

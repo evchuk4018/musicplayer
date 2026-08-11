@@ -1,4 +1,5 @@
 import { claimNextJob, blockJob, completeJob, failJob, updateJobProgress } from '@/server/acquisition/acquisition-repository';
+import { unlink } from 'node:fs/promises';
 import { SpotDlAdapter } from '@/server/acquisition/spotdl-adapter';
 import { getStoredTrackById } from '@/server/catalog/catalog-repository';
 import { databaseConfigured, closeDatabase } from '@/server/db/client';
@@ -43,7 +44,8 @@ async function run() {
     try {
       const processed = await processOne();
       if (Date.now() - lastPrune > 6 * 60 * 60 * 1000) {
-        await pruneDisposableCache().catch((error) => console.error('Retention pass failed', error));
+        const result = await pruneDisposableCache().catch((error) => { console.error('Retention pass failed', error); return undefined; });
+        if (result) await Promise.all(result.removed.filter((item) => item.local_path).map((item) => unlink(item.local_path!).catch(() => undefined)));
         lastPrune = Date.now();
       }
       if (!processed) await new Promise((resolve) => setTimeout(resolve, pollMs));

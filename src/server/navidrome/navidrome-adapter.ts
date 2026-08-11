@@ -13,7 +13,7 @@ export class NavidromeAdapter {
 
   async health() {
     try {
-      const response = await fetch(`${this.baseUrl}/rest/ping.view?${this.authParams().toString()}`, { cache: 'no-store' });
+      const response = await fetch(`${this.baseUrl}/ping`, { cache: 'no-store' });
       if (!response.ok) return { status: 'down' as const, detail: `HTTP ${response.status}` };
       return { status: 'up' as const };
     } catch (error) {

@@ -1,5 +1,6 @@
 const CACHE_NAME = 'pulse-shell-v1';
-const SHELL = ['/', '/manifest.webmanifest', '/icon.svg'];
+const BASE_PATH = new URL('./', self.registration.scope).pathname.replace(/\/$/, '');
+const SHELL = [`${BASE_PATH}/`, `${BASE_PATH}/manifest.webmanifest`, `${BASE_PATH}/icon.svg`];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL)));
