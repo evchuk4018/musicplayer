@@ -30,6 +30,6 @@ docker compose --project-name musicplayer --env-file .env run --rm migrate
 docker compose --project-name musicplayer --env-file .env run --rm migrate node scripts/seed.mjs
 docker compose --project-name musicplayer --env-file .env run --rm migrate node scripts/check-migrations.mjs
 docker compose --project-name musicplayer --env-file .env up -d web worker
-tailscale serve --yes --bg --set-path=/music http://127.0.0.1:3090
+tailscale serve --yes --bg --set-path=/music http://127.0.0.1:3090/music
 curl --fail --silent --show-error https://homelab.tail861ffd.ts.net/music/api/health
 REMOTE_SCRIPT
