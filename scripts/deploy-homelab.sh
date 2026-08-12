@@ -25,12 +25,12 @@ if [ ! -f .env ]; then
     printf 'SPOTDL_COMMAND=spotdl\nSPOTDL_MAX_CONCURRENT=1\nRETENTION_DAYS=30\nPREFETCH_SIZE=5\n'
   } > .env
 fi
-docker compose --project-name musicplayer --profile ops --env-file .env build
-docker compose --project-name musicplayer --env-file .env up -d postgres navidrome
-docker compose --project-name musicplayer --env-file .env run --rm -T migrate
-docker compose --project-name musicplayer --env-file .env run --rm -T migrate node scripts/check-migrations.mjs
-docker compose --project-name musicplayer --env-file .env up -d --force-recreate web worker
-docker compose --project-name musicplayer --env-file .env exec -T web sh -c 'test -r /music && test -x /music'
+docker compose --project-name musicplayer --profile ops --env-file .env build </dev/null
+docker compose --project-name musicplayer --env-file .env up -d postgres navidrome </dev/null
+docker compose --project-name musicplayer --env-file .env run --rm -T migrate </dev/null
+docker compose --project-name musicplayer --env-file .env run --rm -T migrate node scripts/check-migrations.mjs </dev/null
+docker compose --project-name musicplayer --env-file .env up -d --force-recreate web worker </dev/null
+docker compose --project-name musicplayer --env-file .env exec -T web sh -c 'test -r /music && test -x /music' </dev/null
 tailscale serve --yes --bg --set-path=/music http://127.0.0.1:3090/music
 curl --fail --silent --show-error https://homelab.tail861ffd.ts.net/music/api/health
 REMOTE_SCRIPT
