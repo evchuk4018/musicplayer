@@ -1,6 +1,7 @@
 import type {
     SeerrDetail,
     SeerrMedia,
+    SeerrMediaDetailView,
     SeerrMediaInfo,
     SeerrMediaType,
     SeerrPage,
@@ -73,6 +74,15 @@ const getRequestStatus = (mediaInfo: SeerrMediaInfo | null | undefined, userId: 
     mediaInfo?.requests?.find(request => request.requestedBy?.id === userId)?.status
 );
 
+const getSeasonRequestStatus = (
+    mediaInfo: SeerrMediaInfo | null | undefined,
+    seasonNumber: number,
+    userId: number
+) => mediaInfo?.requests?.find(request => (
+    request.requestedBy?.id === userId
+    && request.seasons?.some(season => season.seasonNumber === seasonNumber)
+))?.status;
+
 const toMedia = (result: SeerrSearchResult, userId: number): SeerrMedia | undefined => {
     const mediaType = getMediaType(result);
     if (!mediaType || !Number.isInteger(result.id)) return undefined;
@@ -95,6 +105,46 @@ const toRequestMediaType = (request: SeerrRequest): SeerrMediaType | undefined =
     if (request.media?.mediaType === 'movie' || request.media?.mediaType === 'tv') return request.media.mediaType;
     return undefined;
 };
+
+export const mapSeerrDetail = (
+    detail: SeerrDetail,
+    mediaType: SeerrMediaType,
+    userId: number
+): SeerrMediaDetailView => ({
+    id: detail.id,
+    mediaType,
+    title: detail.title || detail.name || 'Untitled',
+    overview: detail.overview || '',
+    posterUrl: imageUrl(detail.posterPath),
+    backdropUrl: imageUrl(detail.backdropPath),
+    releaseDate: detail.releaseDate || detail.firstAirDate,
+    tagline: detail.tagline,
+    genres: detail.genres
+        ?.map(genre => genre.name)
+        .filter((name): name is string => Boolean(name)) || [],
+    available: getMediaStatus(detail.mediaInfo),
+    requestStatus: getRequestStatus(detail.mediaInfo, userId),
+    seasons: mediaType === 'tv' ? detail.seasons
+        ?.filter(season => Number.isInteger(season.seasonNumber))
+        .map(season => {
+            const seasonNumber = season.seasonNumber!;
+            const status = detail.mediaInfo?.seasons?.find(
+                mediaSeason => mediaSeason.seasonNumber === seasonNumber
+            )?.status;
+
+            return {
+                seasonNumber,
+                name: season.name || `Season ${seasonNumber}`,
+                episodeCount: season.episodeCount || 0,
+                overview: season.overview || '',
+                posterUrl: imageUrl(season.posterPath),
+                airDate: season.airDate || undefined,
+                available: status === 5,
+                partiallyAvailable: status === 4,
+                requestStatus: getSeasonRequestStatus(detail.mediaInfo, seasonNumber, userId)
+            };
+        }) : undefined
+});
 
 export class SeerrAdapter {
     private async findUser(jellyfinUserId: string): Promise<SeerrUser | undefined> {
@@ -170,10 +220,22 @@ export class SeerrAdapter {
         })).then(results => results.filter((result): result is SeerrRequestView => Boolean(result)));
     }
 
+    async getMediaDetail(
+        mediaType: SeerrMediaType,
+        mediaId: number,
+        userId: number
+    ): Promise<SeerrMediaDetailView> {
+        const detail = await requestJson<SeerrDetail>(
+            `/${mediaType === 'movie' ? 'movie' : 'tv'}/${mediaId}`
+        );
+        return mapSeerrDetail(detail, mediaType, userId);
+    }
+
     async createRequest(input: {
         mediaType: SeerrMediaType;
         mediaId: number;
         tvdbId?: number;
+        seasons?: number[];
         userId: number;
     }) {
         const request = await requestJson<SeerrRequest>('/request', {
@@ -182,7 +244,9 @@ export class SeerrAdapter {
                 mediaType: input.mediaType,
                 mediaId: input.mediaId,
                 tvdbId: input.tvdbId,
-                seasons: input.mediaType === 'tv' ? 'all' : undefined,
+                seasons: input.mediaType === 'tv'
+                    ? input.seasons?.length ? input.seasons : 'all'
+                    : undefined,
                 is4k: false,
                 userId: input.userId
             })

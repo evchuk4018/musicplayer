@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic';
 const requestSchema = z.object({
     mediaType: z.enum(['movie', 'tv']),
     mediaId: z.number().int().positive(),
-    tvdbId: z.number().int().positive().optional()
+    tvdbId: z.number().int().positive().optional(),
+    seasons: z.array(z.number().int().nonnegative()).length(1).optional()
 });
 
 export async function GET(request: Request) {
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
             mediaType: SeerrMediaType;
             mediaId: number;
             tvdbId?: number;
+            seasons?: number[];
         }), 201);
     } catch (error) {
         return errorResponse(request, error);

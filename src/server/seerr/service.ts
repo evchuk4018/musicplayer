@@ -40,6 +40,15 @@ export async function getRequests(request: Request) {
     return adapter.getRequests(seerrUserId);
 }
 
+export async function getMediaDetail(
+    request: Request,
+    mediaType: SeerrMediaType,
+    mediaId: number
+) {
+    const { seerrUserId } = await getAuthenticatedSeerrUser(request);
+    return adapter.getMediaDetail(mediaType, mediaId, seerrUserId);
+}
+
 export async function getStatus(request: Request) {
     await getAuthenticatedSeerrUser(request);
     return { enabled: true };
@@ -47,7 +56,12 @@ export async function getStatus(request: Request) {
 
 export async function createRequest(
     request: Request,
-    input: { mediaType: SeerrMediaType; mediaId: number; tvdbId?: number }
+    input: {
+        mediaType: SeerrMediaType;
+        mediaId: number;
+        tvdbId?: number;
+        seasons?: number[];
+    }
 ) {
     const { seerrUserId } = await getAuthenticatedSeerrUser(request);
     return adapter.createRequest({ ...input, userId: seerrUserId });

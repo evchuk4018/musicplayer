@@ -12,11 +12,19 @@ export type SeerrUser = {
 
 export type SeerrMediaInfo = {
     status?: number;
+    seasons?: Array<{
+        seasonNumber?: number;
+        status?: number;
+    }>;
     requests?: Array<{
         requestedBy?: {
             id?: number;
         };
         status?: number;
+        seasons?: Array<{
+            seasonNumber?: number;
+            status?: number;
+        }>;
     }>;
 };
 
@@ -56,8 +64,24 @@ export type SeerrDetail = {
     name?: string;
     overview?: string;
     posterPath?: string | null;
+    backdropPath?: string | null;
     releaseDate?: string;
     firstAirDate?: string;
+    tagline?: string;
+    genres?: Array<{
+        id?: number;
+        name?: string;
+    }>;
+    seasons?: Array<{
+        id?: number;
+        airDate?: string | null;
+        episodeCount?: number;
+        name?: string;
+        overview?: string;
+        posterPath?: string | null;
+        seasonNumber?: number;
+    }>;
+    mediaInfo?: SeerrMediaInfo | null;
 };
 
 export type SeerrMedia = {
@@ -69,6 +93,25 @@ export type SeerrMedia = {
     releaseDate?: string;
     available: boolean;
     requestStatus?: number;
+};
+
+export type SeerrSeasonView = {
+    seasonNumber: number;
+    name: string;
+    episodeCount: number;
+    overview: string;
+    posterUrl?: string;
+    airDate?: string;
+    available: boolean;
+    partiallyAvailable: boolean;
+    requestStatus?: number;
+};
+
+export type SeerrMediaDetailView = SeerrMedia & {
+    backdropUrl?: string;
+    tagline?: string;
+    genres: string[];
+    seasons?: SeerrSeasonView[];
 };
 
 export type SeerrRequestView = {
