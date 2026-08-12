@@ -29,7 +29,7 @@ docker compose --project-name musicplayer --profile ops --env-file .env build
 docker compose --project-name musicplayer --env-file .env up -d postgres navidrome
 docker compose --project-name musicplayer --env-file .env run --rm migrate
 docker compose --project-name musicplayer --env-file .env run --rm migrate node scripts/check-migrations.mjs
-docker compose --project-name musicplayer --env-file .env up -d web worker
+docker compose --project-name musicplayer --env-file .env up -d --force-recreate web worker
 docker compose --project-name musicplayer --env-file .env exec -T web sh -c 'test -r /music && test -x /music'
 tailscale serve --yes --bg --set-path=/music http://127.0.0.1:3090/music
 curl --fail --silent --show-error https://homelab.tail861ffd.ts.net/music/api/health
