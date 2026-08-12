@@ -8,10 +8,10 @@ The normal deployment sequence is:
 
 1. Build and push `main` from the local workspace.
 2. Archive the pushed checkout into `/srv/storage/wowzerbowser/files/musicplayer`.
-3. Create a private `.env` with `MUSICPLAYER_MUSIC_ROOT=/srv/storage/media/music` and a unique PostgreSQL password.
+3. Create a private `.env` with `MUSICPLAYER_MUSIC_ROOT=/srv/storage/media/music` and a unique PostgreSQL password; the deploy script keeps that mount root traversable by the unprivileged web service.
 4. Build and start PostgreSQL/Navidrome.
 5. Run migrations and the migration check.
-6. Build/start web and worker with `restart: unless-stopped`.
+6. Build/start web and worker with `restart: unless-stopped`, then verify the web service can read and traverse `/music`.
 7. Add the `/music` Tailscale Serve path and verify `/music/api/health`.
 
 The resulting private URL is:

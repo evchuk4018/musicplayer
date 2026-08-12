@@ -11,6 +11,7 @@ ssh -o BatchMode=yes -o ConnectTimeout=10 "$REMOTE_HOST" "REMOTE_DIR='$REMOTE_DI
 set -euo pipefail
 cd "$REMOTE_DIR"
 mkdir -p /srv/storage/media/music
+chmod 0755 /srv/storage/media/music
 if [ ! -f .env ]; then
   umask 077
   MUSICPLAYER_POSTGRES_PASSWORD="$(openssl rand -hex 24)"
@@ -29,6 +30,7 @@ docker compose --project-name musicplayer --env-file .env up -d postgres navidro
 docker compose --project-name musicplayer --env-file .env run --rm migrate
 docker compose --project-name musicplayer --env-file .env run --rm migrate node scripts/check-migrations.mjs
 docker compose --project-name musicplayer --env-file .env up -d web worker
+docker compose --project-name musicplayer --env-file .env exec -T web sh -c 'test -r /music && test -x /music'
 tailscale serve --yes --bg --set-path=/music http://127.0.0.1:3090/music
 curl --fail --silent --show-error https://homelab.tail861ffd.ts.net/music/api/health
 REMOTE_SCRIPT
